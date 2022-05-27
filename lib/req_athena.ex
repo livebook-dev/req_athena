@@ -32,8 +32,6 @@ defmodule ReqAthena do
 
   defp run(any), do: any
 
-  defp put_request_body(request, {query, _}), do: put_request_body(request, query)
-
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
     parameters = %{
       QueryExecutionContext: %{
@@ -47,13 +45,13 @@ defmodule ReqAthena do
       WorkGroup: options.workgroup
     }
 
-    client_request_token = build_client_request_token(parameters)
+    client_request_token = generate_client_request_token(parameters)
     body = Map.put(parameters, :ClientRequestToken, client_request_token)
 
     %{request | body: Jason.encode!(body)}
   end
 
-  defp build_client_request_token(parameters) do
+  defp generate_client_request_token(parameters) do
     :erlang.md5(:erlang.term_to_binary(parameters))
     |> Base.encode16()
   end
