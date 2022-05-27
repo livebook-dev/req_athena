@@ -5,8 +5,6 @@ defmodule ReqAthena do
     access_key_id
     secret_access_key
     region
-    workgroup
-    catalog
     database
     athena
     output_location
@@ -35,14 +33,12 @@ defmodule ReqAthena do
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
     parameters = %{
       QueryExecutionContext: %{
-        Catalog: options.catalog,
         Database: options.database
       },
       ResultConfiguration: %{
         OutputLocation: options.output_location
       },
-      QueryString: query,
-      WorkGroup: options.workgroup
+      QueryString: query
     }
 
     client_request_token = generate_client_request_token(parameters)

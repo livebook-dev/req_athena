@@ -87,14 +87,12 @@ defmodule ReqAthenaTest do
 
       %{private: %{athena_action: "StartQueryExecution"}} = request ->
         assert Jason.decode!(request.body) == %{
-                 "ClientRequestToken" => "32AA1B72874D35863B5462EE3EC889AB",
+                 "ClientRequestToken" => "279A8BD03538A2F33C1B13DF28FF1966",
                  "QueryExecutionContext" => %{
-                   "Catalog" => "AwsDataCatalog",
                    "Database" => "my_awesome_database"
                  },
                  "QueryString" => "select * from iris",
-                 "ResultConfiguration" => %{"OutputLocation" => "s3://foo"},
-                 "WorkGroup" => "primary"
+                 "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
                }
 
         assert URI.to_string(request.url) == "https://athena.us-east-1.amazonaws.com"
@@ -118,8 +116,6 @@ defmodule ReqAthenaTest do
       secret_access_key: "dummy",
       region: "us-east-1",
       database: "my_awesome_database",
-      catalog: "AwsDataCatalog",
-      workgroup: "primary",
       output_location: "s3://foo"
     ]
 
