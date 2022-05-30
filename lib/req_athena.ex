@@ -17,7 +17,7 @@ defmodule ReqAthena do
     |> Request.merge_options(options)
   end
 
-  defp run(%Request{private: %{athena_action: "GetQueryResults"}} = request), do: request
+  defp run(%Request{private: %{athena_action: _}} = request), do: request
 
   defp run(%Request{options: %{athena: query} = options} = request) do
     url = "https://athena.#{options.region}.amazonaws.com"
@@ -56,9 +56,33 @@ defmodule ReqAthena do
          {%{private: %{athena_action: "StartQueryExecution"}} = request,
           %{status: 200, body: body}}
        ) do
-    request = sign_request(%{request | body: body}, "GetQueryResults")
+    request = sign_request(%{request | body: body}, "GetQueryExecution")
     response = Req.post!(request)
     {request, response}
+  end
+
+  @waitable_states ~w(QUEUED RUNNING)
+  @retry_delay_ms 2000
+
+  defp handle_athena_result(
+         {%{private: %{athena_action: "GetQueryExecution"}} = request,
+          %{status: 200, body: resp_body} = response}
+       ) do
+    body = Jason.decode!(resp_body)
+    query_state = body["QueryExecution"]["Status"]["State"]
+
+    cond do
+      query_state in @waitable_states ->
+        Process.sleep(@retry_delay_ms)
+        {request, Req.post!(request)}
+
+      query_state == "SUCCEEDED" ->
+        request = sign_request(request, "GetQueryResults")
+        {request, Req.post!(request)}
+
+      true ->
+        {request, response}
+    end
   end
 
   defp handle_athena_result(
@@ -68,7 +92,7 @@ defmodule ReqAthena do
     {request, %{response | body: Jason.decode!(body)}}
   end
 
-  defp handle_athena_result(request_response), do: request_response
+  defp handle_athena_result(request_response), do: IO.inspect(request_response)
 
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
