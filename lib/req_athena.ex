@@ -28,7 +28,7 @@ defmodule ReqAthena do
     |> Request.append_response_steps(athena_result: &handle_athena_result/1)
   end
 
-  defp run(any), do: any
+  defp run(request), do: request
 
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
     parameters = %{
@@ -68,7 +68,7 @@ defmodule ReqAthena do
     {request, %{response | body: Jason.decode!(body)}}
   end
 
-  defp handle_athena_result(any), do: any
+  defp handle_athena_result(request_response), do: request_response
 
   defp sign_request(%{url: uri, options: options} = request, action) do
     aws_headers = [
