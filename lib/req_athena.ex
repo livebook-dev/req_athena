@@ -70,6 +70,8 @@ defmodule ReqAthena do
 
   defp handle_athena_result(request_response), do: request_response
 
+  # TODO: Add step `put_aws_sigv4` to Req
+  # See: https://github.com/wojtekmach/req/issues/62
   defp sign_request(%{url: uri, options: options} = request, action) do
     aws_headers = [
       {"X-Amz-Target", "AmazonAthena.#{action}"},
