@@ -78,7 +78,7 @@ defmodule ReqAthena do
 
       query_state == "SUCCEEDED" ->
         request = sign_request(request, "GetQueryResults")
-        {request, Req.post!(request)}
+        {Request.halt(request), Req.post!(request)}
 
       true ->
         {request, response}
@@ -92,7 +92,7 @@ defmodule ReqAthena do
     {request, %{response | body: Jason.decode!(body)}}
   end
 
-  defp handle_athena_result(request_response), do: IO.inspect(request_response)
+  defp handle_athena_result(request_response), do: request_response
 
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
