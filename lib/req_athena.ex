@@ -73,7 +73,7 @@ defmodule ReqAthena do
       |> sign_request("GetQueryExecution")
       |> Req.post!()
 
-    {request, response}
+    {Request.halt(request), response}
   end
 
   @waitable_states ~w(QUEUED RUNNING)
@@ -82,20 +82,17 @@ defmodule ReqAthena do
     body = Jason.decode!(response.body)
     query_state = body["QueryExecution"]["Status"]["State"]
 
-    response =
-      cond do
-        query_state in @waitable_states ->
-          Req.post!(request)
+    cond do
+      query_state in @waitable_states ->
+        {Request.halt(request), Req.post!(request)}
 
-        query_state == "SUCCEEDED" ->
-          request = sign_request(request, "GetQueryResults")
-          Req.post!(request)
+      query_state == "SUCCEEDED" ->
+        request = sign_request(request, "GetQueryResults")
+        {Request.halt(request), Req.post!(request)}
 
-        true ->
-          response
-      end
-
-    {Request.halt(request), response}
+      true ->
+        {request, response}
+    end
   end
 
   # TODO: Add step `put_aws_sigv4` to Req
