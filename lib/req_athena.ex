@@ -62,7 +62,6 @@ defmodule ReqAthena do
   end
 
   @waitable_states ~w(QUEUED RUNNING)
-  @retry_delay_ms 2000
 
   defp handle_athena_result(
          {%{private: %{athena_action: "GetQueryExecution"}} = request,
@@ -73,7 +72,6 @@ defmodule ReqAthena do
 
     cond do
       query_state in @waitable_states ->
-        Process.sleep(@retry_delay_ms)
         {request, Req.post!(request)}
 
       query_state == "SUCCEEDED" ->
