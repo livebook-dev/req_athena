@@ -52,45 +52,51 @@ defmodule ReqAthena do
     |> Base.encode16()
   end
 
-  defp handle_athena_result(
-         {%{private: %{athena_action: "StartQueryExecution"}} = request,
-          %{status: 200, body: body}}
-       ) do
-    request = sign_request(%{request | body: body}, "GetQueryExecution")
-    response = Req.post!(request)
+  defp handle_athena_result({request, %{status: 200} = response}) do
+    case Request.get_private(request, :athena_action) do
+      "StartQueryExecution" ->
+        get_query_state(request, response)
+
+      "GetQueryExecution" ->
+        wait_query_execution(request, response)
+
+      "GetQueryResults" ->
+        {request, update_in(response.body, &Jason.decode!/1)}
+    end
+  end
+
+  defp handle_athena_result(request_response), do: request_response
+
+  defp get_query_state(request, response) do
+    response =
+      %{request | body: response.body}
+      |> sign_request("GetQueryExecution")
+      |> Req.post!()
+
     {request, response}
   end
 
   @waitable_states ~w(QUEUED RUNNING)
 
-  defp handle_athena_result(
-         {%{private: %{athena_action: "GetQueryExecution"}} = request,
-          %{status: 200, body: resp_body} = response}
-       ) do
-    body = Jason.decode!(resp_body)
+  defp wait_query_execution(request, response) do
+    body = Jason.decode!(response.body)
     query_state = body["QueryExecution"]["Status"]["State"]
 
-    cond do
-      query_state in @waitable_states ->
-        {request, Req.post!(request)}
+    response =
+      cond do
+        query_state in @waitable_states ->
+          Req.post!(request)
 
-      query_state == "SUCCEEDED" ->
-        request = sign_request(request, "GetQueryResults")
-        {Request.halt(request), Req.post!(request)}
+        query_state == "SUCCEEDED" ->
+          request = sign_request(request, "GetQueryResults")
+          Req.post!(request)
 
-      true ->
-        {request, response}
-    end
+        true ->
+          response
+      end
+
+    {Request.halt(request), response}
   end
-
-  defp handle_athena_result(
-         {%{private: %{athena_action: "GetQueryResults"}} = request,
-          %{status: 200, body: body} = response}
-       ) do
-    {request, %{response | body: Jason.decode!(body)}}
-  end
-
-  defp handle_athena_result(request_response), do: request_response
 
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
