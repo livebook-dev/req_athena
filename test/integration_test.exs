@@ -31,17 +31,34 @@ defmodule IntegrationTest do
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
     ]
 
-    setup_database!(opts)
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
 
-    assert response =
+    response = Req.post!(req, athena: @create_table)
+
+    assert response.status == 200
+
+    assert response.body == %{
+             "Output" => "",
+             "ResultSet" => %{
+               "ColumnInfos" => [],
+               "ResultRows" => [],
+               "ResultSetMetadata" => %{"ColumnInfo" => []},
+               "Rows" => []
+             }
+           }
+
+    # query single row from planet table
+    assert query_response =
              Req.new(http_errors: :raise)
              |> ReqAthena.attach(opts)
              |> Req.post!(athena: "SELECT * FROM planet LIMIT 1")
 
-    assert response.status == 200
-    result = response.body
+    assert query_response.status == 200
 
-    assert result == %{
+    assert query_response.body == %{
              "ResultSet" => %{
                "ColumnInfos" => [
                  %{
@@ -436,30 +453,5 @@ defmodule IntegrationTest do
              },
              "UpdateCount" => 0
            }
-  end
-
-  test "wait until query is finished" do
-    opts = [
-      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
-      region: System.fetch_env!("AWS_REGION"),
-      database: "default",
-      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
-    ]
-
-    setup_database!(opts)
-
-    assert response =
-             Req.new(http_errors: :raise)
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "SELECT * FROM planet LIMIT 100")
-
-    assert response.status == 200
-    assert %{"ResultSet" => _} = response.body
-  end
-
-  defp setup_database!(opts) do
-    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-    assert Req.post!(req, athena: @create_table).status == 200
   end
 end
