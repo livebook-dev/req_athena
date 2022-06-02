@@ -6,11 +6,12 @@ defmodule ReqAthenaTest do
       %{private: %{athena_action: "GetQueryResults"}} = request ->
         assert Jason.decode!(request.body) == %{"QueryExecutionId" => "an uuid"}
         assert URI.to_string(request.url) == "https://athena.us-east-1.amazonaws.com"
-        assert Req.Request.get_header(request, "X-Amz-Target") == ["AmazonAthena.GetQueryResults"]
-        assert Req.Request.get_header(request, "Host") == ["athena.us-east-1.amazonaws.com"]
-        assert Req.Request.get_header(request, "Content-Type") == ["application/x-amz-json-1.1"]
+        assert Req.Request.get_header(request, "x-amz-target") == ["AmazonAthena.GetQueryResults"]
+        assert Req.Request.get_header(request, "host") == ["athena.us-east-1.amazonaws.com"]
+        assert Req.Request.get_header(request, "content-type") == ["application/x-amz-json-1.1"]
+        assert Req.Request.get_header(request, "x-auth") == ["my awesome auth header"]
 
-        [value] = Req.Request.get_header(request, "Authorization")
+        [value] = Req.Request.get_header(request, "authorization")
         assert value =~ "us-east-1/athena/aws4_request"
 
         data = %{
@@ -85,6 +86,41 @@ defmodule ReqAthenaTest do
 
         {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
 
+      %{private: %{athena_action: "GetQueryExecution"}} = request ->
+        assert Jason.decode!(request.body) == %{"QueryExecutionId" => "an uuid"}
+        assert URI.to_string(request.url) == "https://athena.us-east-1.amazonaws.com"
+
+        assert Req.Request.get_header(request, "x-amz-target") == [
+                 "AmazonAthena.GetQueryExecution"
+               ]
+
+        assert Req.Request.get_header(request, "host") == ["athena.us-east-1.amazonaws.com"]
+        assert Req.Request.get_header(request, "content-type") == ["application/x-amz-json-1.1"]
+
+        [value] = Req.Request.get_header(request, "authorization")
+        assert value =~ "us-east-1/athena/aws4_request"
+
+        data = %{
+          QueryExecution: %{
+            Query: "select * from iris",
+            QueryExecutionContext: %{
+              Catalog: "AwsDataCatalog",
+              Database: "my_awesome_database"
+            },
+            QueryExecutionId: "some uuid",
+            ResultConfiguration: %{
+              OutputLocation: "s3://foo"
+            },
+            StatementType: "DDL",
+            Status: %{
+              State: "SUCCEEDED"
+            },
+            WorkGroup: "primary"
+          }
+        }
+
+        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+
       %{private: %{athena_action: "StartQueryExecution"}} = request ->
         assert Jason.decode!(request.body) == %{
                  "ClientRequestToken" => "279A8BD03538A2F33C1B13DF28FF1966",
@@ -97,14 +133,14 @@ defmodule ReqAthenaTest do
 
         assert URI.to_string(request.url) == "https://athena.us-east-1.amazonaws.com"
 
-        assert Req.Request.get_header(request, "X-Amz-Target") == [
+        assert Req.Request.get_header(request, "x-amz-target") == [
                  "AmazonAthena.StartQueryExecution"
                ]
 
-        assert Req.Request.get_header(request, "Host") == ["athena.us-east-1.amazonaws.com"]
-        assert Req.Request.get_header(request, "Content-Type") == ["application/x-amz-json-1.1"]
+        assert Req.Request.get_header(request, "host") == ["athena.us-east-1.amazonaws.com"]
+        assert Req.Request.get_header(request, "content-type") == ["application/x-amz-json-1.1"]
 
-        [value] = Req.Request.get_header(request, "Authorization")
+        [value] = Req.Request.get_header(request, "authorization")
         assert value =~ "us-east-1/athena/aws4_request"
 
         data = %{QueryExecutionId: "an uuid"}
@@ -121,6 +157,7 @@ defmodule ReqAthenaTest do
 
     assert response =
              Req.new(adapter: fake_athena)
+             |> Req.Request.put_header("x-auth", "my awesome auth header")
              |> ReqAthena.attach(opts)
              |> Req.post!(athena: "select * from iris")
 
