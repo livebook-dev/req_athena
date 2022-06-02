@@ -1,4 +1,6 @@
 defmodule ReqAthena do
+  require Logger
+
   alias Req.Request
 
   @allowed_options ~w(
@@ -84,6 +86,7 @@ defmodule ReqAthena do
 
     cond do
       query_state in @waitable_states ->
+        Logger.info("ReqAthena: query is in #{query_state}, will retry in 1000ms")
         Process.sleep(1000)
         {Request.halt(request), Req.post!(request)}
 
