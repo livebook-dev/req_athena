@@ -84,6 +84,7 @@ defmodule ReqAthena do
 
     cond do
       query_state in @waitable_states ->
+        Process.sleep(1000)
         {Request.halt(request), Req.post!(request)}
 
       query_state == "SUCCEEDED" ->
@@ -98,6 +99,8 @@ defmodule ReqAthena do
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
   defp sign_request(%{url: uri, options: options} = request, action) do
+    request = Request.put_private(request, :athena_action, action)
+
     aws_headers = [
       {"X-Amz-Target", "AmazonAthena.#{action}"},
       {"Host", uri.host},
@@ -118,7 +121,9 @@ defmodule ReqAthena do
         []
       )
 
-    Request.put_private(%{request | headers: headers}, :athena_action, action)
+    for {name, value} <- headers, reduce: request do
+      acc -> Req.Request.put_header(acc, name, value)
+    end
   end
 
   defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()

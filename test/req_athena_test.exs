@@ -9,6 +9,7 @@ defmodule ReqAthenaTest do
         assert Req.Request.get_header(request, "X-Amz-Target") == ["AmazonAthena.GetQueryResults"]
         assert Req.Request.get_header(request, "Host") == ["athena.us-east-1.amazonaws.com"]
         assert Req.Request.get_header(request, "Content-Type") == ["application/x-amz-json-1.1"]
+        assert Req.Request.get_header(request, "X-Auth") == ["my awesome auth header"]
 
         [value] = Req.Request.get_header(request, "Authorization")
         assert value =~ "us-east-1/athena/aws4_request"
@@ -156,6 +157,7 @@ defmodule ReqAthenaTest do
 
     assert response =
              Req.new(adapter: fake_athena)
+             |> Req.Request.put_header("X-Auth", "my awesome auth header")
              |> ReqAthena.attach(opts)
              |> Req.post!(athena: "select * from iris")
 
