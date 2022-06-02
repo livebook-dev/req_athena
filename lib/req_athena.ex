@@ -125,7 +125,7 @@ defmodule ReqAthena do
       )
 
     for {name, value} <- headers, reduce: request do
-      acc -> Req.Request.put_header(acc, name, value)
+      acc -> Req.Request.put_header(acc, String.downcase(name), value)
     end
   end
 

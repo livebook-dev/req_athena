@@ -51,11 +51,7 @@ defmodule IntegrationTest do
            }
 
     # query single row from planet table
-    assert query_response =
-             Req.new(http_errors: :raise)
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "SELECT * FROM planet LIMIT 1")
-
+    assert query_response = Req.post!(req, athena: "SELECT * FROM planet LIMIT 1")
     assert query_response.status == 200
 
     assert query_response.body == %{
