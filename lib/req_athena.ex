@@ -41,7 +41,7 @@ defmodule ReqAthena do
 
     request
     |> put_request_body("PREPARE #{statement_name} FROM #{query}")
-    |> Request.put_private(:athena_parameterized, true)
+    |> Request.put_private(:athena_parameterized?, true)
   end
 
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
@@ -69,7 +69,7 @@ defmodule ReqAthena do
 
   defp handle_athena_result({request, %{status: 200} = response}) do
     action = Request.get_private(request, :athena_action)
-    parameterized? = Request.get_private(request, :athena_parameterized, false)
+    parameterized? = Request.get_private(request, :athena_parameterized?, false)
 
     case {action, parameterized?} do
       {"StartQueryExecution", _} ->
