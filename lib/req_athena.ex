@@ -32,19 +32,27 @@ defmodule ReqAthena do
 
   defp run(request), do: request
 
+  defp put_request_body(request, {query, []}) do
+    put_request_body(request, query)
+  end
+
+  defp put_request_body(request, {query, _params}) do
+    statement_name = :erlang.md5(query) |> Base.encode16()
+
+    request
+    |> put_request_body("PREPARE #{statement_name} FROM #{query}")
+    |> Request.put_private(:athena_parameterized, true)
+  end
+
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
-    parameters = %{
-      QueryExecutionContext: %{
-        Database: options.database
-      },
-      ResultConfiguration: %{
-        OutputLocation: options.output_location
-      },
+    body = %{
+      QueryExecutionContext: %{Database: options.database},
+      ResultConfiguration: %{OutputLocation: options.output_location},
       QueryString: query
     }
 
-    client_request_token = generate_client_request_token(parameters)
-    body = Map.put(parameters, :ClientRequestToken, client_request_token)
+    client_request_token = generate_client_request_token(body)
+    body = Map.put(body, :ClientRequestToken, client_request_token)
 
     %{request | body: Jason.encode!(body)}
   end
@@ -54,16 +62,27 @@ defmodule ReqAthena do
     |> Base.encode16()
   end
 
+  defp put_execute_statement_query(name, params) do
+    params = for param <- params, do: encode_value(param)
+    "EXECUTE #{name} USING #{Enum.join(params, ", ")}"
+  end
+
   defp handle_athena_result({request, %{status: 200} = response}) do
-    case Request.get_private(request, :athena_action) do
-      "StartQueryExecution" ->
+    action = Request.get_private(request, :athena_action)
+    parameterized? = Request.get_private(request, :athena_parameterized, false)
+
+    case {action, parameterized?} do
+      {"StartQueryExecution", _} ->
         get_query_state(request, response)
 
-      "GetQueryExecution" ->
+      {"GetQueryExecution", _} ->
         wait_query_execution(request, response)
 
-      "GetQueryResults" ->
-        {request, update_in(response.body, &Jason.decode!/1)}
+      {"GetQueryResults", true} ->
+        execute_prepared_query(request)
+
+      {"GetQueryResults", _} ->
+        {Request.halt(request), update_in(response.body, &Jason.decode!/1)}
     end
   end
 
@@ -95,8 +114,16 @@ defmodule ReqAthena do
         {Request.halt(request), Req.post!(request)}
 
       true ->
-        {request, response}
+        {Request.halt(request), update_in(response.body, &Jason.decode!/1)}
     end
+  end
+
+  defp execute_prepared_query(request) do
+    {query, params} = request.options.athena
+    statement_name = :erlang.md5(query) |> Base.encode16()
+    athena = put_execute_statement_query(statement_name, params)
+
+    {Request.halt(request), Req.post!(%{request | private: %{}}, athena: athena)}
   end
 
   # TODO: Add step `put_aws_sigv4` to Req
@@ -130,4 +157,7 @@ defmodule ReqAthena do
   end
 
   defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()
+
+  defp encode_value(value) when is_binary(value), do: "'#{value}'"
+  defp encode_value(value), do: value
 end
