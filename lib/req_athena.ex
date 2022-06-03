@@ -62,11 +62,6 @@ defmodule ReqAthena do
     |> Base.encode16()
   end
 
-  defp put_execute_statement_query(name, params) do
-    params = for param <- params, do: encode_value(param)
-    "EXECUTE #{name} USING #{Enum.join(params, ", ")}"
-  end
-
   defp handle_athena_result({request, %{status: 200} = response}) do
     action = Request.get_private(request, :athena_action)
     parameterized? = Request.get_private(request, :athena_parameterized?, false)
@@ -121,7 +116,7 @@ defmodule ReqAthena do
   defp execute_prepared_query(request) do
     {query, params} = request.options.athena
     statement_name = :erlang.md5(query) |> Base.encode16()
-    athena = put_execute_statement_query(statement_name, params)
+    athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
 
     {Request.halt(request), Req.post!(%{request | private: %{}}, athena: athena)}
   end

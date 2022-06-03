@@ -481,7 +481,8 @@ defmodule IntegrationTest do
     # query single row from planet table
     assert query_response =
              Req.post!(req,
-               athena: {"SELECT * FROM planet WHERE id = ? and type = ?", [239_970_142, "node"]}
+               athena:
+                 {"SELECT id, type FROM planet WHERE id = ? and type = ?", [239_970_142, "node"]}
              )
 
     assert query_response.status == 200
@@ -512,173 +513,19 @@ defmodule IntegrationTest do
                    "SchemaName" => "",
                    "TableName" => "",
                    "Type" => "varchar"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "tags",
-                   "Name" => "tags",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 0,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "map"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "lat",
-                   "Name" => "lat",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 9,
-                   "Scale" => 7,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "decimal"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "lon",
-                   "Name" => "lon",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 10,
-                   "Scale" => 7,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "decimal"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "nds",
-                   "Name" => "nds",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 0,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "array"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "members",
-                   "Name" => "members",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 0,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "array"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "changeset",
-                   "Name" => "changeset",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 19,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "bigint"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "timestamp",
-                   "Name" => "timestamp",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 3,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "timestamp"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "uid",
-                   "Name" => "uid",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 19,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "bigint"
-                 },
-                 %{
-                   "CaseSensitive" => true,
-                   "CatalogName" => "hive",
-                   "Label" => "user",
-                   "Name" => "user",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 2_147_483_647,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "varchar"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "version",
-                   "Name" => "version",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 19,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "bigint"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "visible",
-                   "Name" => "visible",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 0,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "boolean"
                  }
                ],
                "ResultRows" => [
                  %{
                    "Data" => [
                      "id",
-                     "type",
-                     "tags",
-                     "lat",
-                     "lon",
-                     "nds",
-                     "members",
-                     "changeset",
-                     "timestamp",
-                     "uid",
-                     "user",
-                     "version",
-                     "visible"
+                     "type"
                    ]
                  },
                  %{
                    "Data" => [
                      "239970142",
-                     "node",
-                     "{created_by=JOSM}",
-                     "-2.1627500",
-                     "139.3920000",
-                     "[]",
-                     "[]",
-                     "665284",
-                     "2008-01-19 15:43:38.000",
-                     "7744",
-                     "Keith Thomson",
-                     "1",
-                     "true"
+                     "node"
                    ]
                  }
                ],
@@ -707,138 +554,6 @@ defmodule IntegrationTest do
                      "SchemaName" => "",
                      "TableName" => "",
                      "Type" => "varchar"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "tags",
-                     "Name" => "tags",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 0,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "map"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "lat",
-                     "Name" => "lat",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 9,
-                     "Scale" => 7,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "decimal"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "lon",
-                     "Name" => "lon",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 10,
-                     "Scale" => 7,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "decimal"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "nds",
-                     "Name" => "nds",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 0,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "array"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "members",
-                     "Name" => "members",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 0,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "array"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "changeset",
-                     "Name" => "changeset",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 19,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "bigint"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "timestamp",
-                     "Name" => "timestamp",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 3,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "timestamp"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "uid",
-                     "Name" => "uid",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 19,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "bigint"
-                   },
-                   %{
-                     "CaseSensitive" => true,
-                     "CatalogName" => "hive",
-                     "Label" => "user",
-                     "Name" => "user",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 2_147_483_647,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "varchar"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "version",
-                     "Name" => "version",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 19,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "bigint"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "visible",
-                     "Name" => "visible",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 0,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "boolean"
                    }
                  ]
                },
@@ -846,35 +561,13 @@ defmodule IntegrationTest do
                  %{
                    "Data" => [
                      %{"VarCharValue" => "id"},
-                     %{"VarCharValue" => "type"},
-                     %{"VarCharValue" => "tags"},
-                     %{"VarCharValue" => "lat"},
-                     %{"VarCharValue" => "lon"},
-                     %{"VarCharValue" => "nds"},
-                     %{"VarCharValue" => "members"},
-                     %{"VarCharValue" => "changeset"},
-                     %{"VarCharValue" => "timestamp"},
-                     %{"VarCharValue" => "uid"},
-                     %{"VarCharValue" => "user"},
-                     %{"VarCharValue" => "version"},
-                     %{"VarCharValue" => "visible"}
+                     %{"VarCharValue" => "type"}
                    ]
                  },
                  %{
                    "Data" => [
                      %{"VarCharValue" => "239970142"},
-                     %{"VarCharValue" => "node"},
-                     %{"VarCharValue" => "{created_by=JOSM}"},
-                     %{"VarCharValue" => "-2.1627500"},
-                     %{"VarCharValue" => "139.3920000"},
-                     %{"VarCharValue" => "[]"},
-                     %{"VarCharValue" => "[]"},
-                     %{"VarCharValue" => "665284"},
-                     %{"VarCharValue" => "2008-01-19 15:43:38.000"},
-                     %{"VarCharValue" => "7744"},
-                     %{"VarCharValue" => "Keith Thomson"},
-                     %{"VarCharValue" => "1"},
-                     %{"VarCharValue" => "true"}
+                     %{"VarCharValue" => "node"}
                    ]
                  }
                ]
