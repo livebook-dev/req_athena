@@ -3,7 +3,7 @@ defmodule IntegrationTest do
   @moduletag :integration
 
   @create_table """
-  CREATE EXTERNAL TABLE IF NOT EXISTS planet (
+  CREATE TABLE IF NOT EXISTS planet (
     id BIGINT,
     type STRING,
     tags MAP<STRING,STRING>,
@@ -18,7 +18,6 @@ defmodule IntegrationTest do
     version BIGINT,
     visible BOOLEAN
   )
-  STORED AS ORCFILE
   LOCATION 's3://osm-pds/planet/';\
   """
 
@@ -443,6 +442,132 @@ defmodule IntegrationTest do
                      %{"VarCharValue" => "Keith Thomson"},
                      %{"VarCharValue" => "1"},
                      %{"VarCharValue" => "true"}
+                   ]
+                 }
+               ]
+             },
+             "UpdateCount" => 0
+           }
+  end
+
+  test "returns the response from AWS Athena's API with parameterized query" do
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+    ]
+
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
+
+    response = Req.post!(req, athena: @create_table)
+
+    assert response.status == 200
+
+    assert response.body == %{
+             "Output" => "",
+             "ResultSet" => %{
+               "ColumnInfos" => [],
+               "ResultRows" => [],
+               "ResultSetMetadata" => %{"ColumnInfo" => []},
+               "Rows" => []
+             }
+           }
+
+    # query single row from planet table
+    assert query_response =
+             Req.post!(req,
+               athena:
+                 {"SELECT id, type FROM planet WHERE id = ? and type = ?", [239_970_142, "node"]}
+             )
+
+    assert query_response.status == 200
+
+    assert query_response.body == %{
+             "ResultSet" => %{
+               "ColumnInfos" => [
+                 %{
+                   "CaseSensitive" => false,
+                   "CatalogName" => "hive",
+                   "Label" => "id",
+                   "Name" => "id",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 19,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "bigint"
+                 },
+                 %{
+                   "CaseSensitive" => true,
+                   "CatalogName" => "hive",
+                   "Label" => "type",
+                   "Name" => "type",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 2_147_483_647,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "varchar"
+                 }
+               ],
+               "ResultRows" => [
+                 %{
+                   "Data" => [
+                     "id",
+                     "type"
+                   ]
+                 },
+                 %{
+                   "Data" => [
+                     "239970142",
+                     "node"
+                   ]
+                 }
+               ],
+               "ResultSetMetadata" => %{
+                 "ColumnInfo" => [
+                   %{
+                     "CaseSensitive" => false,
+                     "CatalogName" => "hive",
+                     "Label" => "id",
+                     "Name" => "id",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 19,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "bigint"
+                   },
+                   %{
+                     "CaseSensitive" => true,
+                     "CatalogName" => "hive",
+                     "Label" => "type",
+                     "Name" => "type",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 2_147_483_647,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "varchar"
+                   }
+                 ]
+               },
+               "Rows" => [
+                 %{
+                   "Data" => [
+                     %{"VarCharValue" => "id"},
+                     %{"VarCharValue" => "type"}
+                   ]
+                 },
+                 %{
+                   "Data" => [
+                     %{"VarCharValue" => "239970142"},
+                     %{"VarCharValue" => "node"}
                    ]
                  }
                ]
