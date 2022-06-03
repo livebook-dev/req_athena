@@ -26,7 +26,8 @@ defmodule ReqAthena.MixProject do
   defp deps do
     [
       {:req, github: "wojtekmach/req"},
-      {:aws_signature, "~> 0.3.0"}
+      {:aws_signature, "~> 0.3.0"},
+      {:table, "~> 0.1.1", optional: true}
     ]
   end
 
