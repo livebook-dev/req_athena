@@ -78,7 +78,7 @@ defmodule ReqAthena do
         execute_prepared_query(request)
 
       {"GetQueryResults", _} ->
-        {Request.halt(request), update_in(response.body, &Jason.decode!/1)}
+        decode_result(request, response)
     end
   end
 
@@ -110,11 +110,11 @@ defmodule ReqAthena do
         {Request.halt(request), Req.post!(request)}
 
       true ->
-        {Request.halt(request), update_in(response.body, &Jason.decode!/1)}
+        decode_result(request, response)
     end
   end
 
-  @athena_keys ~w(athena_action athena_statement_name athena_parameterized?)a
+  @athena_keys ~w(athena_action athena_parameterized?)a
 
   defp execute_prepared_query(request) do
     {_, params} = request.options.athena
@@ -124,6 +124,43 @@ defmodule ReqAthena do
     request = %{request | private: private}
 
     {Request.halt(request), Req.post!(request, athena: athena)}
+  end
+
+  defp decode_result(request, response) do
+    body = Jason.decode!(response.body)
+    statement_name = Request.get_private(request, :athena_statement_name)
+
+    result =
+      case body do
+        %{
+          "ResultSet" => %{
+            "ColumnInfos" => fields,
+            "ResultRows" => [%{"Data" => columns} | rows]
+          }
+        } ->
+          %ReqAthena.Result{
+            statement_name: statement_name,
+            rows: decode_rows(rows, fields),
+            columns: columns
+          }
+
+        %{"ResultSet" => _} ->
+          %ReqAthena.Result{statement_name: statement_name}
+
+        body ->
+          body
+      end
+
+    {Request.halt(request), %{response | body: result}}
+  end
+
+  defp decode_rows(rows, fields) do
+    Enum.map(rows, fn %{"Data" => columns} ->
+      Enum.with_index(columns, fn value, index ->
+        field = Enum.at(fields, index)
+        decode_value(value, field)
+      end)
+    end)
   end
 
   # TODO: Add step `put_aws_sigv4` to Req
@@ -160,4 +197,20 @@ defmodule ReqAthena do
 
   defp encode_value(value) when is_binary(value), do: "'#{value}'"
   defp encode_value(value), do: value
+
+  defp decode_value(nil, _), do: nil
+
+  defp decode_value(value, %{"Type" => "bigint"}), do: String.to_integer(value)
+  defp decode_value(value, %{"Type" => "decimal"}), do: Decimal.new(value)
+
+  # TODO: Implement a decoder for a map
+  # with format: {key=value, ...}
+  # i.e.: {created_by=JOSM}
+  defp decode_value(value, %{"Type" => "map"}), do: value
+
+  defp decode_value(value, %{"Type" => "array"}), do: Jason.decode!(value)
+  defp decode_value("true", %{"Type" => "boolean"}), do: true
+  defp decode_value("false", %{"Type" => "boolean"}), do: false
+  defp decode_value(value, %{"Type" => "timestamp"}), do: NaiveDateTime.from_iso8601!(value)
+  defp decode_value(value, _), do: value
 end

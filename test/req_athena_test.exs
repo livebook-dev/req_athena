@@ -44,8 +44,8 @@ defmodule ReqAthenaTest do
             ],
             "ResultRows" => [
               %{"Data" => ["id", "name"]},
-              %{"Data" => [1, "\"Ale\""]},
-              %{"Data" => [2, "\"Wojtek\""]}
+              %{"Data" => [1, "Ale"]},
+              %{"Data" => [2, "Wojtek"]}
             ],
             "ResultSetMetadata" => %{
               "ColumnInfo" => [
@@ -163,74 +163,10 @@ defmodule ReqAthenaTest do
 
     assert response.status == 200
 
-    assert response.body == %{
-             "ResultSet" => %{
-               "ColumnInfos" => [
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "id",
-                   "Name" => "id",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 2_147_483_647,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "integer"
-                 },
-                 %{
-                   "CaseSensitive" => false,
-                   "CatalogName" => "hive",
-                   "Label" => "name",
-                   "Name" => "name",
-                   "Nullable" => "UNKNOWN",
-                   "Precision" => 2_147_483_647,
-                   "Scale" => 0,
-                   "SchemaName" => "",
-                   "TableName" => "",
-                   "Type" => "varchar"
-                 }
-               ],
-               "ResultRows" => [
-                 %{"Data" => ["id", "name"]},
-                 %{"Data" => [1, "\"Ale\""]},
-                 %{"Data" => [2, "\"Wojtek\""]}
-               ],
-               "ResultSetMetadata" => %{
-                 "ColumnInfo" => [
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "id",
-                     "Name" => "id",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 2_147_483_647,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "integer"
-                   },
-                   %{
-                     "CaseSensitive" => false,
-                     "CatalogName" => "hive",
-                     "Label" => "name",
-                     "Name" => "name",
-                     "Nullable" => "UNKNOWN",
-                     "Precision" => 2_147_483_647,
-                     "Scale" => 0,
-                     "SchemaName" => "",
-                     "TableName" => "",
-                     "Type" => "varchar"
-                   }
-                 ]
-               },
-               "Rows" => [
-                 %{"Data" => ["id", "name"]},
-                 %{"Data" => [1, "\"Ale\""]},
-                 %{"Data" => [2, "\"Wojtek\""]}
-               ]
-             },
-             "UpdateCount" => 0
+    assert response.body == %ReqAthena.Result{
+             columns: ["id", "name"],
+             rows: [[1, "Ale"], [2, "Wojtek"]],
+             statement_name: nil
            }
   end
 end
