@@ -42,6 +42,7 @@ defmodule ReqAthena do
     request
     |> put_request_body("PREPARE #{statement_name} FROM #{query}")
     |> Request.put_private(:athena_parameterized?, true)
+    |> Request.put_private(:athena_statement_name, statement_name)
   end
 
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
@@ -113,12 +114,16 @@ defmodule ReqAthena do
     end
   end
 
-  defp execute_prepared_query(request) do
-    {query, params} = request.options.athena
-    statement_name = :erlang.md5(query) |> Base.encode16()
-    athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
+  @athena_keys ~w(athena_action athena_statement_name athena_parameterized?)a
 
-    {Request.halt(request), Req.post!(%{request | private: %{}}, athena: athena)}
+  defp execute_prepared_query(request) do
+    {_, params} = request.options.athena
+    statement_name = Req.Request.get_private(request, :athena_statement_name)
+    athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
+    {_, private} = Map.split(request.private, @athena_keys)
+    request = %{request | private: private}
+
+    {Request.halt(request), Req.post!(request, athena: athena)}
   end
 
   # TODO: Add step `put_aws_sigv4` to Req
