@@ -93,28 +93,37 @@ defmodule ReqAthena do
     {Request.halt(request), response}
   end
 
-  @waitable_states ~w(QUEUED RUNNING)
+  @wait_delay 1000
 
   defp wait_query_execution(request, response) do
     body = Jason.decode!(response.body)
-    query_state = body["QueryExecution"]["Status"]["State"]
 
-    cond do
-      query_state in @waitable_states ->
-        Logger.info("ReqAthena: query is in #{query_state}, will retry in 1000ms")
-        Process.sleep(1000)
+    case body["QueryExecution"]["Status"]["State"] do
+      "QUEUED" ->
+        count = Request.get_private(request, :athena_wait_count, 1)
+
+        if count >= 3 do
+          Logger.info("ReqAthena: query is in QUEUED state, will retry in 1000ms")
+        end
+
+        request = Request.put_private(request, :athena_wait_count, count + 1)
+        Process.sleep(@wait_delay)
         {Request.halt(request), Req.post!(request)}
 
-      query_state == "SUCCEEDED" ->
+      "RUNNING" ->
+        Process.sleep(@wait_delay)
+        {Request.halt(request), Req.post!(request)}
+
+      "SUCCEEDED" ->
         request = sign_request(request, "GetQueryResults")
         {Request.halt(request), Req.post!(request)}
 
-      true ->
+      _other_state ->
         decode_result(request, response)
     end
   end
 
-  @athena_keys ~w(athena_action athena_parameterized?)a
+  @athena_keys ~w(athena_action athena_parameterized? athena_wait_count)a
 
   defp execute_prepared_query(request) do
     {_, params} = request.options.athena
