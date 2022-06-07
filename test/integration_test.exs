@@ -86,7 +86,7 @@ defmodule IntegrationTest do
     assert query_response.body == %ReqAthena.Result{
              columns: ["id", "type"],
              rows: [[239_970_142, "node"]],
-             statement_name: "C71EF77B8B7B92D9846C6D7E70136448"
+             statement_name: "query_C71EF77B8B7B92D9846C6D7E70136448"
            }
   end
 end

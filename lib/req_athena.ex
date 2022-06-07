@@ -37,7 +37,8 @@ defmodule ReqAthena do
   end
 
   defp put_request_body(request, {query, _params}) do
-    statement_name = :erlang.md5(query) |> Base.encode16()
+    hash = :erlang.md5(query) |> Base.encode16()
+    statement_name = "query_" <> hash
 
     request
     |> put_request_body("PREPARE #{statement_name} FROM #{query}")
