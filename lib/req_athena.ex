@@ -206,21 +206,74 @@ defmodule ReqAthena do
   defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()
 
   defp encode_value(value) when is_binary(value), do: "'#{value}'"
+  defp encode_value(%Date{} = value), do: to_string(value) |> encode_value()
+
+  defp encode_value(%DateTime{} = value) do
+    value
+    |> DateTime.to_naive()
+    |> encode_value()
+  end
+
+  defp encode_value(%NaiveDateTime{} = value) do
+    value
+    |> NaiveDateTime.truncate(:second)
+    |> to_string()
+    |> encode_value()
+  end
+
   defp encode_value(value), do: value
 
   defp decode_value(nil, _), do: nil
 
-  defp decode_value(value, %{"Type" => "bigint"}), do: String.to_integer(value)
+  @integer_types ~w(bigint smallint integer)
+
+  defp decode_value(value, %{"Type" => type}) when type in @integer_types,
+    do: String.to_integer(value)
+
   defp decode_value(value, %{"Type" => "decimal"}), do: Decimal.new(value)
 
-  # TODO: Implement a decoder for a map
-  # with format: {key=value, ...}
-  # i.e.: {created_by=JOSM}
-  defp decode_value(value, %{"Type" => "map"}), do: value
+  @float_types ~w(double float)
+
+  defp decode_value(value, %{"Type" => type}) when type in @float_types,
+    do: String.to_float(value)
+
+  @remove_brackets_regex ~r/^\{(.*)\}$/
+  @map_types ~w(map row)
+
+  defp decode_value("{}", %{"Type" => "map"}), do: %{}
+
+  defp decode_value(value, %{"Type" => type}) when type in @map_types do
+    [_, value] = Regex.run(@remove_brackets_regex, value)
+    decode_map(value)
+  end
 
   defp decode_value(value, %{"Type" => "array"}), do: Jason.decode!(value)
   defp decode_value("true", %{"Type" => "boolean"}), do: true
   defp decode_value("false", %{"Type" => "boolean"}), do: false
-  defp decode_value(value, %{"Type" => "timestamp"}), do: NaiveDateTime.from_iso8601!(value)
+  defp decode_value(value, %{"Type" => "date"}), do: Date.from_iso8601!(value)
+
+  # TODO: Support Timestamp with TimeZone
+  # i.e.: 
+  #   value = "2012-10-30 23:00:00.000 America/Sao_Paulo"
+  #   field = %{"Type" => "timestamp with time zone"}
+  defp decode_value(value, %{"Type" => "timestamp"}) do
+    value
+    |> NaiveDateTime.from_iso8601!()
+    |> NaiveDateTime.truncate(:second)
+  end
+
   defp decode_value(value, _), do: value
+
+  @map_item_regex ~r/([^\s=,]*)=(.*?|[^,]*)(?=,\s[^\s=,]*=|$)/
+  @array_value_regex ~r/\[[^\]]+\]/
+
+  defp decode_map(value) do
+    for [_, k, v] <- Regex.scan(@map_item_regex, value), into: %{} do
+      if Regex.match?(@array_value_regex, v) do
+        {k, Jason.decode!(v)}
+      else
+        {k, v}
+      end
+    end
+  end
 end

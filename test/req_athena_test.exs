@@ -44,8 +44,8 @@ defmodule ReqAthenaTest do
             ],
             "ResultRows" => [
               %{"Data" => ["id", "name"]},
-              %{"Data" => [1, "Ale"]},
-              %{"Data" => [2, "Wojtek"]}
+              %{"Data" => ["1", "Ale"]},
+              %{"Data" => ["2", "Wojtek"]}
             ],
             "ResultSetMetadata" => %{
               "ColumnInfo" => [
