@@ -12,7 +12,7 @@ defmodule ReqAthena.Result do
 
   @type t :: %__MODULE__{
           columns: [String.t()],
-          rows: [[term()] | binary()],
+          rows: [[term()]],
           statement_name: binary()
         }
 
