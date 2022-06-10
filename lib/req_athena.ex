@@ -37,11 +37,13 @@ defmodule ReqAthena do
   end
 
   defp put_request_body(request, {query, _params}) do
-    statement_name = :erlang.md5(query) |> Base.encode16()
+    hash = :erlang.md5(query) |> Base.encode16()
+    statement_name = "query_" <> hash
 
     request
     |> put_request_body("PREPARE #{statement_name} FROM #{query}")
     |> Request.put_private(:athena_parameterized?, true)
+    |> Request.put_private(:athena_statement_name, statement_name)
   end
 
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
@@ -77,7 +79,7 @@ defmodule ReqAthena do
         execute_prepared_query(request)
 
       {"GetQueryResults", _} ->
-        {Request.halt(request), update_in(response.body, &Jason.decode!/1)}
+        decode_result(request, response)
     end
   end
 
@@ -92,33 +94,83 @@ defmodule ReqAthena do
     {Request.halt(request), response}
   end
 
-  @waitable_states ~w(QUEUED RUNNING)
+  @wait_delay 1000
 
   defp wait_query_execution(request, response) do
     body = Jason.decode!(response.body)
-    query_state = body["QueryExecution"]["Status"]["State"]
 
-    cond do
-      query_state in @waitable_states ->
-        Logger.info("ReqAthena: query is in #{query_state}, will retry in 1000ms")
-        Process.sleep(1000)
+    case body["QueryExecution"]["Status"]["State"] do
+      "QUEUED" ->
+        count = Request.get_private(request, :athena_wait_count, 1)
+
+        if count >= 3 do
+          Logger.info("ReqAthena: query is in QUEUED state, will retry in 1000ms")
+        end
+
+        request = Request.put_private(request, :athena_wait_count, count + 1)
+        Process.sleep(@wait_delay)
         {Request.halt(request), Req.post!(request)}
 
-      query_state == "SUCCEEDED" ->
+      "RUNNING" ->
+        Process.sleep(@wait_delay)
+        {Request.halt(request), Req.post!(request)}
+
+      "SUCCEEDED" ->
         request = sign_request(request, "GetQueryResults")
         {Request.halt(request), Req.post!(request)}
 
-      true ->
-        {Request.halt(request), update_in(response.body, &Jason.decode!/1)}
+      _other_state ->
+        decode_result(request, response)
     end
   end
 
-  defp execute_prepared_query(request) do
-    {query, params} = request.options.athena
-    statement_name = :erlang.md5(query) |> Base.encode16()
-    athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
+  @athena_keys ~w(athena_action athena_parameterized? athena_wait_count)a
 
-    {Request.halt(request), Req.post!(%{request | private: %{}}, athena: athena)}
+  defp execute_prepared_query(request) do
+    {_, params} = request.options.athena
+    statement_name = Req.Request.get_private(request, :athena_statement_name)
+    athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
+    {_, private} = Map.split(request.private, @athena_keys)
+    request = %{request | private: private}
+
+    {Request.halt(request), Req.post!(request, athena: athena)}
+  end
+
+  defp decode_result(request, response) do
+    body = Jason.decode!(response.body)
+    statement_name = Request.get_private(request, :athena_statement_name)
+
+    result =
+      case body do
+        %{
+          "ResultSet" => %{
+            "ColumnInfos" => fields,
+            "ResultRows" => [%{"Data" => columns} | rows]
+          }
+        } ->
+          %ReqAthena.Result{
+            statement_name: statement_name,
+            rows: decode_rows(rows, fields),
+            columns: columns
+          }
+
+        %{"ResultSet" => _} ->
+          %ReqAthena.Result{statement_name: statement_name}
+
+        body ->
+          body
+      end
+
+    {Request.halt(request), %{response | body: result}}
+  end
+
+  defp decode_rows(rows, fields) do
+    Enum.map(rows, fn %{"Data" => columns} ->
+      Enum.with_index(columns, fn value, index ->
+        field = Enum.at(fields, index)
+        decode_value(value, field)
+      end)
+    end)
   end
 
   # TODO: Add step `put_aws_sigv4` to Req
@@ -155,4 +207,20 @@ defmodule ReqAthena do
 
   defp encode_value(value) when is_binary(value), do: "'#{value}'"
   defp encode_value(value), do: value
+
+  defp decode_value(nil, _), do: nil
+
+  defp decode_value(value, %{"Type" => "bigint"}), do: String.to_integer(value)
+  defp decode_value(value, %{"Type" => "decimal"}), do: Decimal.new(value)
+
+  # TODO: Implement a decoder for a map
+  # with format: {key=value, ...}
+  # i.e.: {created_by=JOSM}
+  defp decode_value(value, %{"Type" => "map"}), do: value
+
+  defp decode_value(value, %{"Type" => "array"}), do: Jason.decode!(value)
+  defp decode_value("true", %{"Type" => "boolean"}), do: true
+  defp decode_value("false", %{"Type" => "boolean"}), do: false
+  defp decode_value(value, %{"Type" => "timestamp"}), do: NaiveDateTime.from_iso8601!(value)
+  defp decode_value(value, _), do: value
 end
