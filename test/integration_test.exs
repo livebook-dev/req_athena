@@ -167,7 +167,8 @@ defmodule IntegrationTest do
     assert Req.post!(req, athena: {query, [datetime]}).body.rows == [[value]]
 
     query = "SELECT timestamp '2012-10-31 01:00:00 UTC' AT TIME ZONE 'America/Sao_Paulo'"
-    assert Req.post!(req, athena: query).body.rows == [[nil]]
+    value = DateTime.new!(~D[2012-10-30], ~T[23:00:00], "America/Sao_Paulo")
+    assert Req.post!(req, athena: query).body.rows == [[value]]
 
     value = %{"id" => "1", "name" => "aleDsz"}
     query = "SELECT MAP(ARRAY['name', 'id'], ARRAY['aleDsz', '1'])"
