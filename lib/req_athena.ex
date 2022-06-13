@@ -252,14 +252,19 @@ defmodule ReqAthena do
   defp decode_value("false", %{"Type" => "boolean"}), do: false
   defp decode_value(value, %{"Type" => "date"}), do: Date.from_iso8601!(value)
 
-  # TODO: Support Timestamp with TimeZone
-  # i.e.: 
-  #   value = "2012-10-30 23:00:00.000 America/Sao_Paulo"
-  #   field = %{"Type" => "timestamp with time zone"}
   defp decode_value(value, %{"Type" => "timestamp"}) do
     value
     |> NaiveDateTime.from_iso8601!()
     |> NaiveDateTime.truncate(:second)
+  end
+
+  defp decode_value(value, %{"Type" => "timestamp with time zone"}) do
+    [d, t, tz] = String.split(value, " ", trim: true)
+    date = Date.from_iso8601!(d)
+    time = Time.from_iso8601!(t)
+
+    DateTime.new!(date, time, tz)
+    |> DateTime.truncate(:second)
   end
 
   defp decode_value(value, _), do: value
