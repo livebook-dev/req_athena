@@ -171,13 +171,31 @@ defmodule IntegrationTest do
     value = "{ids=[10, 20]}"
     query = "SELECT CAST(ROW(ARRAY[10, 20]) AS ROW(ids ARRAY<INTEGER>))"
     assert Req.post!(req, athena: query).body.rows == [[value]]
+  end
+
+  test "returns failed AWS Athena's response" do
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+    ]
+
+    req = Req.new() |> ReqAthena.attach(opts)
+    response = Req.post!(req, athena: {"SELECT ? + 10", ["foo"]})
+
+    assert response.status == 200
+
+    assert response.body["QueryExecution"]["Status"]["AthenaError"]["ErrorMessage"] ==
+             "line 1:11: '+' cannot be applied to varchar(3), integer"
 
     assert_raise RuntimeError,
                  "failed query with error: line 1:8: Column 'foo' cannot be resolved",
-                 fn -> Req.post!(req, athena: "SELECT foo") end
+                 fn -> Req.post!(req, http_errors: :raise, athena: "SELECT foo") end
 
     assert_raise RuntimeError,
                  "failed query with error: line 1:11: '+' cannot be applied to varchar(3), integer",
-                 fn -> Req.post!(req, athena: {"SELECT ? + 10", ["foo"]}) end
+                 fn -> Req.post!(req, http_errors: :raise, athena: {"SELECT ? + 10", ["foo"]}) end
   end
 end
