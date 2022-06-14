@@ -165,6 +165,8 @@ defmodule ReqAthenaTest do
 
     assert response.body == %ReqAthena.Result{
              columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
              rows: [[1, "Ale"], [2, "Wojtek"]],
              statement_name: nil
            }

@@ -97,6 +97,7 @@ defmodule ReqAthena do
   @wait_delay 1000
 
   defp wait_query_execution(request, response) do
+    %{"QueryExecutionId" => query_execution_id} = Jason.decode!(request.body)
     body = Jason.decode!(response.body)
     query_status = body["QueryExecution"]["Status"]
 
@@ -117,7 +118,15 @@ defmodule ReqAthena do
         {Request.halt(request), Req.post!(request)}
 
       "SUCCEEDED" ->
-        request = sign_request(request, "GetQueryResults")
+        request =
+          request
+          |> sign_request("GetQueryResults")
+          |> Request.put_private(
+            :athena_output_location,
+            body["QueryExecution"]["ResultConfiguration"]["OutputLocation"]
+          )
+          |> Request.put_private(:athena_query_execution_id, query_execution_id)
+
         {Request.halt(request), Req.post!(request)}
 
       "FAILED" ->
@@ -148,6 +157,8 @@ defmodule ReqAthena do
   defp decode_result(request, response) do
     body = Jason.decode!(response.body)
     statement_name = Request.get_private(request, :athena_statement_name)
+    query_execution_id = Request.get_private(request, :athena_query_execution_id)
+    output_location = Request.get_private(request, :athena_output_location)
 
     result =
       case body do
@@ -158,13 +169,19 @@ defmodule ReqAthena do
           }
         } ->
           %ReqAthena.Result{
+            query_execution_id: query_execution_id,
+            output_location: output_location,
             statement_name: statement_name,
             rows: decode_rows(rows, fields),
             columns: columns
           }
 
         %{"ResultSet" => _} ->
-          %ReqAthena.Result{statement_name: statement_name}
+          %ReqAthena.Result{
+            query_execution_id: query_execution_id,
+            output_location: output_location,
+            statement_name: statement_name
+          }
 
         body ->
           body

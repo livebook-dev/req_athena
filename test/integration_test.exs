@@ -39,7 +39,6 @@ defmodule IntegrationTest do
     response = Req.post!(req, athena: @create_table)
 
     assert response.status == 200
-    assert response.body == %ReqAthena.Result{columns: [], rows: [], statement_name: nil}
 
     # query single row from planet table
     assert query_response =
@@ -54,27 +53,31 @@ defmodule IntegrationTest do
 
     assert query_response.status == 200
 
-    assert query_response.body == %ReqAthena.Result{
-             columns: [
-               "id",
-               "type",
-               "tags",
-               "members",
-               "timestamp",
-               "visible"
-             ],
-             rows: [
-               [
-                 470_454,
-                 "relation",
-                 "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
-                 "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
-                 ~N[2017-01-21 12:51:34.000],
-                 true
-               ]
-             ],
-             statement_name: nil
-           }
+    assert query_response.body.columns == [
+             "id",
+             "type",
+             "tags",
+             "members",
+             "timestamp",
+             "visible"
+           ]
+
+    refute query_response.body.statement_name
+    assert is_binary(query_response.body.query_execution_id)
+
+    assert "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv" ==
+             query_response.body.output_location
+
+    assert query_response.body.rows == [
+             [
+               470_454,
+               "relation",
+               "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
+               "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
+               ~N[2017-01-21 12:51:34.000],
+               true
+             ]
+           ]
   end
 
   test "returns the response from AWS Athena's API with parameterized query" do
@@ -94,7 +97,6 @@ defmodule IntegrationTest do
     response = Req.post!(req, athena: @create_table)
 
     assert response.status == 200
-    assert response.body == %ReqAthena.Result{columns: [], rows: [], statement_name: nil}
 
     # query single row from planet table
     assert query_response =
@@ -104,12 +106,13 @@ defmodule IntegrationTest do
              )
 
     assert query_response.status == 200
+    assert query_response.body.columns == ["id", "type"]
+    assert query_response.body.statement_name == "query_C71EF77B8B7B92D9846C6D7E70136448"
+    assert is_binary(query_response.body.query_execution_id)
+    assert query_response.body.rows == [[239_970_142, "node"]]
 
-    assert query_response.body == %ReqAthena.Result{
-             columns: ["id", "type"],
-             rows: [[239_970_142, "node"]],
-             statement_name: "query_C71EF77B8B7B92D9846C6D7E70136448"
-           }
+    assert "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv" ==
+             query_response.body.output_location
   end
 
   test "encodes and decodes types received from AWS Athena's response" do
