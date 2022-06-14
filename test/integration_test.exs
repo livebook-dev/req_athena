@@ -65,8 +65,8 @@ defmodule IntegrationTest do
     refute query_response.body.statement_name
     assert is_binary(query_response.body.query_execution_id)
 
-    assert "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv" ==
-             query_response.body.output_location
+    assert query_response.body.output_location ==
+             "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv"
 
     assert query_response.body.rows == [
              [
@@ -111,8 +111,8 @@ defmodule IntegrationTest do
     assert is_binary(query_response.body.query_execution_id)
     assert query_response.body.rows == [[239_970_142, "node"]]
 
-    assert "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv" ==
-             query_response.body.output_location
+    assert query_response.body.output_location ==
+             "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv"
   end
 
   test "encodes and decodes types received from AWS Athena's response" do
