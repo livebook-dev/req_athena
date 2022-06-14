@@ -121,8 +121,12 @@ defmodule ReqAthena do
         {Request.halt(request), Req.post!(request)}
 
       "FAILED" ->
-        raise RuntimeError,
-              "failed query with error: " <> query_status["AthenaError"]["ErrorMessage"]
+        if request.options[:http_errors] == :raise do
+          raise RuntimeError,
+                "failed query with error: " <> query_status["AthenaError"]["ErrorMessage"]
+        else
+          {Request.halt(request), %{response | body: body, status: 400}}
+        end
 
       _other_state ->
         decode_result(request, response)
