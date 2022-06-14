@@ -134,7 +134,7 @@ defmodule ReqAthena do
           raise RuntimeError,
                 "failed query with error: " <> query_status["AthenaError"]["ErrorMessage"]
         else
-          {Request.halt(request), %{response | body: body, status: 400}}
+          {Request.halt(request), %{response | body: body}}
         end
 
       _other_state ->
