@@ -235,36 +235,10 @@ defmodule ReqAthena do
   defp decode_value(value, %{"Type" => type}) when type in @integer_types,
     do: String.to_integer(value)
 
-  defp decode_value(value, %{"Type" => "decimal"}), do: Decimal.new(value)
-
-  @float_types ~w(double float)
+  @float_types ~w(double float decimal)
 
   defp decode_value(value, %{"Type" => type}) when type in @float_types,
     do: String.to_float(value)
-
-  # Regex to get all map between the `[` and `]` square brackets
-  # e.g.: [{id=1, name=Ale, emails=[foo@mail.com, bar@mail.com]}, ...]
-  @remove_square_brackets_regex ~r/^\[(.*)\]$/
-
-  defp decode_value("[]", %{"Type" => "array"}), do: []
-
-  defp decode_value(value, %{"Type" => "array"}) do
-    [_, value] = Regex.run(@remove_square_brackets_regex, value)
-    decode_array(value)
-  end
-
-  # Regex to get all key-value data
-  # between the `{` and `}` brackets
-  # e.g.: {id=1, name=Ale, emails=[foo@mail.com, bar@mail.com]}
-  @remove_brackets_regex ~r/^\{(.*)\}$/
-  @map_types ~w(map row)
-
-  defp decode_value("{}", %{"Type" => "map"}), do: %{}
-
-  defp decode_value(value, %{"Type" => type}) when type in @map_types do
-    [_, value] = Regex.run(@remove_brackets_regex, value)
-    decode_map(value)
-  end
 
   defp decode_value("true", %{"Type" => "boolean"}), do: true
   defp decode_value("false", %{"Type" => "boolean"}), do: false
@@ -282,33 +256,4 @@ defmodule ReqAthena do
   end
 
   defp decode_value(value, _), do: value
-
-  # Regex to parse the map structure, ignoring
-  # the comma between brackets (`{}`),
-  # allowing the decoder to handle array of maps/rows
-  @map_array_regex ~r/(?:[^\s,\{]|\{[^\}]*\})+/
-
-  defp decode_array(value) do
-    for [map] <- Regex.scan(@map_array_regex, value), into: [] do
-      decode_value(map, %{"Type" => "map"})
-    end
-  end
-
-  # Regex to parse the key-value structure, ignoring
-  # the comma between square brackets (`[]`),
-  # allowing the decoder to not parse array values
-  @map_item_regex ~r/([^\s=,]*)=(.*?|[^,]*)(?=,\s[^\s=,]*=|$)/
-
-  # Regex to verify if the value should be decoded as JSON
-  @array_value_regex ~r/\[[^\]]+\]/
-
-  defp decode_map(value) do
-    for [_, k, v] <- Regex.scan(@map_item_regex, value), into: %{} do
-      if Regex.match?(@array_value_regex, v) do
-        {k, Jason.decode!(v)}
-      else
-        {k, v}
-      end
-    end
-  end
 end

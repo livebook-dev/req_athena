@@ -3,7 +3,7 @@ defmodule IntegrationTest do
   @moduletag :integration
 
   @create_table """
-  CREATE TABLE IF NOT EXISTS planet (
+  CREATE EXTERNAL TABLE IF NOT EXISTS planet (
     id BIGINT,
     type STRING,
     tags MAP<STRING,STRING>,
@@ -18,6 +18,7 @@ defmodule IntegrationTest do
     version BIGINT,
     visible BOOLEAN
   )
+  STORED AS ORCFILE
   LOCATION 's3://osm-pds/planet/';\
   """
 
@@ -66,20 +67,8 @@ defmodule IntegrationTest do
                [
                  470_454,
                  "relation",
-                 %{
-                   "name" => "Mérignac A",
-                   "network" => "NTF-5",
-                   "ref" => "17229A",
-                   "site" => "geodesic",
-                   "source" => "©IGN 2010 dans le cadre de la cartographie réglementaire",
-                   "type" => "site",
-                   "url" =>
-                     "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A"
-                 },
-                 [
-                   %{"ref" => "670007839", "role" => "", "type" => "node"},
-                   %{"ref" => "670007840", "role" => "", "type" => "node"}
-                 ],
+                 "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
+                 "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
                  ~N[2017-01-21 12:51:34.000],
                  true
                ]
@@ -134,18 +123,6 @@ defmodule IntegrationTest do
 
     req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
 
-    value = Decimal.new("1.1")
-    query = "SELECT CAST(? AS DECIMAL(38,1))"
-    assert Req.post!(req, athena: {query, [value]}).body.rows == [[value]]
-
-    value = Decimal.new("1.10")
-    query = "SELECT CAST(? AS DECIMAL(38,2))"
-    assert Req.post!(req, athena: {query, [value]}).body.rows == [[value]]
-
-    value = Decimal.new("-1.1")
-    query = "SELECT CAST(? AS DECIMAL(38,1))"
-    assert Req.post!(req, athena: {query, [value]}).body.rows == [[value]]
-
     value = "req"
     assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
 
@@ -167,12 +144,6 @@ defmodule IntegrationTest do
     value = String.to_float("3.402823466E+38")
     assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
 
-    # value = Decimal.new("1.175494351E-38")
-    # assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
-
-    # value = Decimal.new("3.402823466E+38")
-    # assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
-
     value = Date.utc_today()
     query = "SELECT CAST(? AS DATE)"
     assert Req.post!(req, athena: {query, [value]}).body.rows == [[value]]
@@ -190,11 +161,11 @@ defmodule IntegrationTest do
     value = DateTime.new!(~D[2012-10-30], ~T[23:00:00.000], "America/Sao_Paulo")
     assert Req.post!(req, athena: query).body.rows == [[value]]
 
-    value = %{"id" => "1", "name" => "aleDsz"}
+    value = "{name=aleDsz, id=1}"
     query = "SELECT MAP(ARRAY['name', 'id'], ARRAY['aleDsz', '1'])"
     assert Req.post!(req, athena: query).body.rows == [[value]]
 
-    value = %{"ids" => [10, 20]}
+    value = "{ids=[10, 20]}"
     query = "SELECT CAST(ROW(ARRAY[10, 20]) AS ROW(ids ARRAY<INTEGER>))"
     assert Req.post!(req, athena: query).body.rows == [[value]]
 
