@@ -186,6 +186,7 @@ defmodule IntegrationTest do
     response = Req.post!(req, athena: {"SELECT ? + 10", ["foo"]})
 
     assert response.status == 200
+    assert response.body["QueryExecution"]["Status"]["State"] == "FAILED"
 
     assert response.body["QueryExecution"]["Status"]["AthenaError"]["ErrorMessage"] ==
              "line 1:11: '+' cannot be applied to varchar(3), integer"
