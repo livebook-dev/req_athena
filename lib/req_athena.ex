@@ -1,4 +1,10 @@
 defmodule ReqAthena do
+  @moduledoc """
+  `Req` plugin for [AWS Athena](https://docs.aws.amazon.com/athena/latest/APIReference/Welcome.html).
+
+  ReqAthena makes it easy to make Athena queries. Query results are decoded into the `ReqAthena.Result` struct.
+  The struct implements the `Table.Reader` protocol and thus can be efficiently traversed by rows or columns.
+  """
   require Logger
 
   alias Req.Request
@@ -12,6 +18,70 @@ defmodule ReqAthena do
     output_location
   )a
 
+  @doc """
+  Attaches to Req request.
+
+  ## Request Options
+
+    * `:access_key_id` - Required. The Access Key ID from AWS credentials.
+
+    * `:secret_access_key` - Required. The Secret Access Key from AWS credentials.
+
+    * `:region` - Required. The AWS region where AWS Athena is installed.
+
+    * `:database` - Required. The AWS Athena database name.
+
+    * `:output_location` - Required. The S3 url location to output AWS Athena query results.
+
+    * `:athena` - Required. The query to execute. It can be a plain sql string or
+      a `{query, params}` tuple, where `query` can contain `?` placeholders and `params`
+      is a list of corresponding values.
+
+  If you want to set any of these options when attaching the plugin, pass them as the second argument.
+
+  ## Examples
+
+  With plain query string:
+
+      iex> opts = [
+      ...>   access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      ...>   secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      ...>   region: System.fetch_env!("AWS_REGION"),
+      ...>   database: "default",
+      ...>   output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      ...> ]
+      iex> query = "SELECT id, type FROM planet WHERE id = 470454 and type = 'relation'"
+      iex> req = Req.new() |> ReqAthena.attach(opts)
+      iex> Req.post!(req, athena: query).body
+      %ReqAthena.Result{
+        columns: ["id", "type"],
+        output_location: "s3://my-bucket/7788bdd3-7d09-4851-be4c-e128ef27f215.csv",
+        query_execution_id: "7788bdd3-7d09-4851-be4c-e128ef27f215",
+        rows: [[470454, "relation"]],
+        statement_name: nil
+      }
+
+  With parameterized query:
+
+      iex> opts = [
+      ...>   access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      ...>   secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      ...>   region: System.fetch_env!("AWS_REGION"),
+      ...>   database: "default",
+      ...>   output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      ...> ]
+      iex> query = "SELECT id, type FROM planet WHERE id = ? and type = ?"
+      iex> req = Req.new() |> ReqAthena.attach(opts)
+      iex> Req.post!(req, athena: {query, [239_970_142, "node"]}).body
+      %ReqAthena.Result{
+        columns: ["id", "type"],
+        output_location: "s3://my-bucket/dda41d66-1eea-4588-850a-945c9def9163.csv",
+        query_execution_id: "dda41d66-1eea-4588-850a-945c9def9163",
+        rows: [[239_970_142, "node"]],
+        statement_name: "query_C71EF77B8B7B92D9846C6D7E70136448"
+      }
+
+  """
   def attach(%Request{} = request, options \\ []) do
     request
     |> Request.prepend_request_steps(athena_run: &run/1)
