@@ -44,8 +44,8 @@ defmodule ReqAthenaTest do
             ],
             "ResultRows" => [
               %{"Data" => ["id", "name"]},
-              %{"Data" => [1, "Ale"]},
-              %{"Data" => [2, "Wojtek"]}
+              %{"Data" => ["1", "Ale"]},
+              %{"Data" => ["2", "Wojtek"]}
             ],
             "ResultSetMetadata" => %{
               "ColumnInfo" => [
@@ -165,6 +165,8 @@ defmodule ReqAthenaTest do
 
     assert response.body == %ReqAthena.Result{
              columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
              rows: [[1, "Ale"], [2, "Wojtek"]],
              statement_name: nil
            }
