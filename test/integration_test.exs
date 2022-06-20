@@ -141,10 +141,10 @@ defmodule IntegrationTest do
     value = true
     assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
 
-    value = String.to_float("1.175494351E-38")
+    value = 1.175494351e-38
     assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
 
-    value = String.to_float("3.402823466E+38")
+    value = 3.402823466e+38
     assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
 
     value = Date.utc_today()

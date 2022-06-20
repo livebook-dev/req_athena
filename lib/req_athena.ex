@@ -50,14 +50,19 @@ defmodule ReqAthena do
       ...>   database: "default",
       ...>   output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
       ...> ]
-      iex> query = "SELECT id, type FROM planet WHERE id = 470454 and type = 'relation'"
+      iex> query = "SELECT id, type, tags, members, timestamp, visible FROM planet WHERE id = 470454 and type = 'relation'"
       iex> req = Req.new() |> ReqAthena.attach(opts)
       iex> Req.post!(req, athena: query).body
       %ReqAthena.Result{
-        columns: ["id", "type"],
-        output_location: "s3://my-bucket/7788bdd3-7d09-4851-be4c-e128ef27f215.csv",
-        query_execution_id: "7788bdd3-7d09-4851-be4c-e128ef27f215",
-        rows: [[470454, "relation"]],
+        columns: ["id", "type", "tags", "members", "timestamp", "visible"],
+        output_location: "s3://my-bucket/c594d5df-9879-4bf7-8796-780e0b87a673.csv",
+        query_execution_id: "c594d5df-9879-4bf7-8796-780e0b87a673",
+        rows: [
+          [470454, "relation",
+           "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
+           "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
+           ~N[2017-01-21 12:51:34.000], true]
+        ],
         statement_name: nil
       }
 
