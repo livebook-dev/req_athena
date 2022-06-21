@@ -38,7 +38,7 @@ defmodule ReqAthena.MixProject do
 
   defp deps do
     [
-      {:req, github: "wojtekmach/req"},
+      {:req, "~> 0.3.0"},
       {:aws_signature, "~> 0.3.0"},
       {:table, "~> 0.1.1", optional: true},
       {:tzdata, "~> 1.1.1", only: :test}
