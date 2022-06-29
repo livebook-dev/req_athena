@@ -7,8 +7,8 @@ defmodule ReqAthena.Result do
     * `columns` - The column names;
     * `rows` - The result set. A list of lists, each inner list corresponding to a
       row, each element in the inner list corresponds to a column;
-    * `statement_name` - The statement name from executed query.
-    * `query_execution_id` - The id from executed query.
+    * `statement_name` - The statement name from executed query;
+    * `query_execution_id` - The id from executed query;
     * `output_location` - The S3 url location where the result was output.
   """
 
