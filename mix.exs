@@ -1,13 +1,15 @@
 defmodule ReqAthena.MixProject do
   use Mix.Project
 
-  @version "0.1.0-dev"
-  @source_url "https://github.com/livebook-dev/req_athena"
+  @version "0.1.0"
+  @description "Req plugin for AWS Athena"
 
   def project do
     [
       app: :req_athena,
       version: @version,
+      description: @description,
+      name: "ReqAthena",
       elixir: "~> 1.12",
       preferred_cli_env: [
         "test.all": :test,
@@ -17,7 +19,8 @@ defmodule ReqAthena.MixProject do
       start_permanent: Mix.env() == :prod,
       docs: docs(),
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      package: package()
     ]
   end
 
@@ -30,7 +33,7 @@ defmodule ReqAthena.MixProject do
   defp docs do
     [
       main: "readme",
-      source_url: @source_url,
+      source_url: "https://github.com/livebook-dev/req_athena",
       source_ref: "v#{@version}",
       extras: ["README.md"]
     ]
@@ -41,11 +44,21 @@ defmodule ReqAthena.MixProject do
       {:req, "~> 0.3.0"},
       {:aws_signature, "~> 0.3.0"},
       {:table, "~> 0.1.1", optional: true},
-      {:tzdata, "~> 1.1.1", only: :test}
+      {:tzdata, "~> 1.1.1", only: :test},
+      {:ex_doc, ">= 0.0.0", only: :docs, runtime: false}
     ]
   end
 
   def aliases do
     ["test.all": ["test --include integration"]]
+  end
+
+  defp package do
+    [
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" => "https://github.com/livebook-dev/req_athena"
+      }
+    ]
   end
 end

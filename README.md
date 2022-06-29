@@ -1,5 +1,7 @@
 # ReqAthena
 
+[![Hex pm](http://img.shields.io/hexpm/v/req_athena.svg?style=flat)](https://hex.pm/packages/req_athena)
+
 [Req](https://github.com/wojtekmach/req) plugin for [AWS Athena](https://docs.aws.amazon.com/athena/latest/APIReference/Welcome.html).
 
 ReqAthena makes it easy to make Athena queries. Query results are decoded into the `ReqAthena.Result` struct.
@@ -9,8 +11,8 @@ The struct implements the `Table.Reader` protocol and thus can be efficiently tr
 
 ```elixir
 Mix.install([
-  {:req, github: "wojtekmach/req"},
-  {:req_athena, github: "livebook-dev/req_athena"}
+  {:req, "~> 0.3.0"},
+  {:req_athena, "~> 0.1.0"}
 ])
 
 opts = [
