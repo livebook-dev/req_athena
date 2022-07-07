@@ -199,4 +199,108 @@ defmodule IntegrationTest do
                  "failed query with error: line 1:11: '+' cannot be applied to varchar(3), integer",
                  fn -> Req.post!(req, http_errors: :raise, athena: {"SELECT ? + 10", ["foo"]}) end
   end
+
+  describe "with aws_credentials" do
+    @path Path.expand("./config/") <> "/"
+
+    setup tags do
+      if env = tags[:aws_credentials] do
+        for {k, v} <- env do
+          Application.put_env(:aws_credentials, k, v)
+        end
+      end
+
+      if envs = tags[:envs] do
+        for {k, v} <- envs do
+          System.put_env(k, v)
+          on_exit(fn -> System.delete_env(k) end)
+        end
+      end
+
+      :ok
+    end
+
+    @tag aws_credentials: [
+           fail_if_unavailable: false,
+           credential_providers: [:aws_credentials_env]
+         ]
+    test "get's from system env and create table" do
+      :aws_credentials_sup.start_link()
+
+      opts = [
+        database: "default",
+        output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      ]
+
+      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+      response = Req.post!(req, athena: @create_table)
+
+      assert response.status == 200
+    end
+
+    @tag envs: %{
+           "AWS_CONFIG_FILE" => @path <> "config",
+           "AWS_SHARED_CREDENTIALS_FILE" => @path <> "credentials"
+         },
+         aws_credentials: [
+           fail_if_unavailable: false,
+           credential_providers: [:aws_credentials_file],
+           provider_options: %{credential_path: to_charlist(Path.expand("./"))}
+         ]
+    test "get's from the files from env and create table" do
+      :aws_credentials_sup.start_link()
+
+      opts = [
+        database: "default",
+        output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      ]
+
+      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+      response = Req.post!(req, athena: @create_table)
+
+      assert response.status == 200
+    end
+
+    @tag envs: %{
+           "AWS_CONFIG_FILE" => @path <> "config",
+           "AWS_SHARED_CREDENTIALS_FILE" => @path <> "credentials_with_token"
+         },
+         aws_credentials: [
+           fail_if_unavailable: false,
+           credential_providers: [:aws_credentials_file],
+           provider_options: %{credential_path: to_charlist(Path.expand("./"))}
+         ]
+    test "get's from the files from env with session token and create table" do
+      :aws_credentials_sup.start_link()
+
+      opts = [
+        database: "default",
+        output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      ]
+
+      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+      response = Req.post!(req, athena: @create_table)
+
+      assert response.status == 200
+    end
+
+    @tag aws_credentials: [
+           fail_if_unavailable: false,
+           credential_providers: [:aws_credentials_file],
+           provider_options: %{credential_path: to_charlist(@path)}
+         ]
+    test "get's from file system and create table" do
+      opts = [
+        database: "default",
+        output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      ]
+
+      :aws_credentials_sup.start_link()
+
+      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+      response = Req.post!(req, athena: @create_table)
+
+      assert response.status == 200
+    end
+  end
 end

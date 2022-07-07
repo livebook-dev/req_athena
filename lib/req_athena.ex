@@ -92,6 +92,7 @@ defmodule ReqAthena do
     |> Request.prepend_request_steps(athena_run: &run/1)
     |> Request.register_options(@allowed_options)
     |> Request.merge_options(options)
+    |> maybe_put_aws_credentials()
   end
 
   defp run(%Request{private: %{athena_action: _}} = request), do: request
@@ -276,24 +277,30 @@ defmodule ReqAthena do
 
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
-  defp sign_request(%{url: uri, options: options} = request, action) do
+  defp sign_request(request, action) do
     request = Request.put_private(request, :athena_action, action)
 
-    aws_headers = [
-      {"X-Amz-Target", "AmazonAthena.#{action}"},
-      {"Host", uri.host},
-      {"Content-Type", "application/x-amz-json-1.1"}
-    ]
+    session_aws_header =
+      if token = request.options[:token],
+        do: [{"X-Amz-Security-Token", token}],
+        else: []
+
+    aws_headers =
+      [
+        {"X-Amz-Target", "AmazonAthena.#{action}"},
+        {"Host", request.url.host},
+        {"Content-Type", "application/x-amz-json-1.1"}
+      ] ++ session_aws_header
 
     headers =
       :aws_signature.sign_v4(
-        options.access_key_id,
-        options.secret_access_key,
-        options.region,
+        request.options.access_key_id,
+        request.options.secret_access_key,
+        request.options.region,
         "athena",
         now(),
         "POST",
-        to_string(uri),
+        to_string(request.url),
         aws_headers,
         request.body,
         []
@@ -301,6 +308,29 @@ defmodule ReqAthena do
 
     for {name, value} <- headers, reduce: request do
       acc -> Req.Request.put_header(acc, String.downcase(name), value)
+    end
+  end
+
+  @credential_keys ~w(access_key_id secret_access_key region token)a
+
+  defp maybe_put_aws_credentials(request) do
+    credentials = get_credentials(request.options)
+    options = Map.take(credentials, @credential_keys)
+
+    %{request | options: Map.merge(request.options, options)}
+  end
+
+  defp get_credentials(options) do
+    credentials_from_opts = Map.take(options, @credential_keys)
+
+    if Code.ensure_loaded?(:aws_credentials) and Process.whereis(:aws_credentials_sup) do
+      credentials = :aws_credentials.get_credentials()
+
+      for {k, v} <- Map.take(credentials, @credential_keys), reduce: %{} do
+        acc -> if v == :undefined, do: acc, else: Map.put(acc, k, v)
+      end
+    else
+      credentials_from_opts
     end
   end
 
