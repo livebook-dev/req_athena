@@ -1,8 +1,9 @@
 defmodule ReqAthenaTest do
   use ExUnit.Case, async: true
+  @moduletag :capture_log
 
   setup do
-    Application.unload(:aws_credentials)
+    Application.put_env(:aws_credentials, :credential_providers, [])
     :ok
   end
 

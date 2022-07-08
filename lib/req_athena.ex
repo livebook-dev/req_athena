@@ -330,10 +330,8 @@ defmodule ReqAthena do
           into: %{}
 
     if Code.ensure_loaded?(:aws_credentials) do
-      Application.ensure_all_started(:aws_credentials)
-
       credentials =
-        for {k, v} <- :aws_credentials.get_credentials(),
+        for {k, v} <- get_credentials(),
             k in @credential_keys and v != :undefined,
             do: {k, v},
             into: %{}
@@ -347,6 +345,19 @@ defmodule ReqAthena do
       end
     else
       credentials_from_opts
+    end
+  end
+
+  defp get_credentials do
+    case Application.ensure_all_started(:aws_credentials) do
+      {:ok, _} ->
+        case :aws_credentials.get_credentials() do
+          :undefined -> %{}
+          map -> map
+        end
+
+      _error ->
+        %{}
     end
   end
 
