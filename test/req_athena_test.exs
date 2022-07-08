@@ -1,6 +1,11 @@
 defmodule ReqAthenaTest do
   use ExUnit.Case, async: true
 
+  setup do
+    Application.unload(:aws_credentials)
+    :ok
+  end
+
   test "executes a query string" do
     fake_athena = fn
       %{private: %{athena_action: "GetQueryResults"}} = request ->
