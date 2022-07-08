@@ -294,7 +294,7 @@ defmodule ReqAthena do
 
     headers =
       for {k, v} <- sign_request(request, aws_headers),
-          do: {String.downcase(k), v},
+          do: {String.downcase(k, :ascii), v},
           into: []
 
     Req.Request.put_headers(request, headers)
@@ -324,8 +324,8 @@ defmodule ReqAthena do
 
   defp get_credentials(options) do
     credentials_from_opts =
-      for {k, v} <- Map.take(options, @credential_keys),
-          v not in [nil, ""],
+      for {k, v} <- options,
+          v in @credential_keys and v not in [nil, ""],
           do: {k, v},
           into: %{}
 
@@ -336,17 +336,13 @@ defmodule ReqAthena do
             do: {k, v},
             into: %{}
 
-      for {k, v} <- credentials, into: %{} do
-        if value = credentials_from_opts[k] do
-          {k, value}
-        else
-          {k, v}
-        end
-      end
+      Map.merge(credentials, credentials_from_opts)
     else
       credentials_from_opts
     end
   end
+
+  @compile {:no_warn_undefined, :aws_credentials}
 
   defp get_credentials do
     case Application.ensure_all_started(:aws_credentials) do
