@@ -277,7 +277,7 @@ defmodule ReqAthena do
 
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
-  defp sign_request(request, action) do
+  defp sign_request(request, action) when is_binary(action) do
     request = Request.put_private(request, :athena_action, action)
 
     session_aws_header =
@@ -293,20 +293,26 @@ defmodule ReqAthena do
       ] ++ session_aws_header
 
     headers =
-      :aws_signature.sign_v4(
-        request.options.access_key_id,
-        request.options.secret_access_key,
-        request.options.region,
-        "athena",
-        now(),
-        "POST",
-        to_string(request.url),
-        aws_headers,
-        request.body,
-        []
-      )
+      for {k, v} <- sign_request(request, aws_headers),
+          do: {String.downcase(k), v},
+          into: []
 
     Req.Request.put_headers(request, headers)
+  end
+
+  defp sign_request(request, aws_headers) when is_list(aws_headers) do
+    :aws_signature.sign_v4(
+      request.options.access_key_id,
+      request.options.secret_access_key,
+      request.options.region,
+      "athena",
+      now(),
+      "POST",
+      to_string(request.url),
+      aws_headers,
+      request.body,
+      []
+    )
   end
 
   @credential_keys ~w(access_key_id secret_access_key region token)a
@@ -317,13 +323,30 @@ defmodule ReqAthena do
   end
 
   defp get_credentials(options) do
+    credentials_from_opts =
+      for {k, v} <- Map.take(options, @credential_keys),
+          v not in [nil, ""],
+          do: {k, v},
+          into: %{}
+
     if Code.ensure_loaded?(:aws_credentials) do
       Application.ensure_all_started(:aws_credentials)
-      credentials = :aws_credentials.get_credentials()
 
-      for {k, v} <- credentials, k in @credential_keys and v != :undefined, do: {k, v}, into: %{}
+      credentials =
+        for {k, v} <- :aws_credentials.get_credentials(),
+            k in @credential_keys and v != :undefined,
+            do: {k, v},
+            into: %{}
+
+      for {k, v} <- credentials, into: %{} do
+        if value = credentials_from_opts[k] do
+          {k, value}
+        else
+          {k, v}
+        end
+      end
     else
-      Map.take(options, @credential_keys)
+      credentials_from_opts
     end
   end
 
