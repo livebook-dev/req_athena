@@ -306,31 +306,24 @@ defmodule ReqAthena do
         []
       )
 
-    for {name, value} <- headers, reduce: request do
-      acc -> Req.Request.put_header(acc, String.downcase(name), value)
-    end
+    Req.Request.put_headers(request, headers)
   end
 
   @credential_keys ~w(access_key_id secret_access_key region token)a
 
   defp maybe_put_aws_credentials(request) do
-    credentials = get_credentials(request.options)
-    options = Map.take(credentials, @credential_keys)
-
+    options = get_credentials(request.options)
     %{request | options: Map.merge(request.options, options)}
   end
 
   defp get_credentials(options) do
-    credentials_from_opts = Map.take(options, @credential_keys)
-
-    if Code.ensure_loaded?(:aws_credentials) and Process.whereis(:aws_credentials_sup) do
+    if Code.ensure_loaded?(:aws_credentials) do
+      Application.ensure_all_started(:aws_credentials)
       credentials = :aws_credentials.get_credentials()
 
-      for {k, v} <- Map.take(credentials, @credential_keys), reduce: %{} do
-        acc -> if v == :undefined, do: acc, else: Map.put(acc, k, v)
-      end
+      for {k, v} <- credentials, k in @credential_keys and v != :undefined, do: {k, v}, into: %{}
     else
-      credentials_from_opts
+      Map.take(options, @credential_keys)
     end
   end
 

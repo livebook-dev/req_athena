@@ -217,16 +217,17 @@ defmodule IntegrationTest do
         end
       end
 
+      on_exit(fn -> Application.stop(:aws_credentials) end)
+
       :ok
     end
 
-    @tag aws_credentials: [
+    @tag capture_log: true,
+         aws_credentials: [
            fail_if_unavailable: false,
            credential_providers: [:aws_credentials_env]
          ]
     test "get's from system env and create table" do
-      :aws_credentials_sup.start_link()
-
       opts = [
         database: "default",
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
@@ -238,7 +239,8 @@ defmodule IntegrationTest do
       assert response.status == 200
     end
 
-    @tag envs: %{
+    @tag capture_log: true,
+         envs: %{
            "AWS_CONFIG_FILE" => @path <> "config",
            "AWS_SHARED_CREDENTIALS_FILE" => @path <> "credentials"
          },
@@ -248,8 +250,6 @@ defmodule IntegrationTest do
            provider_options: %{credential_path: to_charlist(Path.expand("./"))}
          ]
     test "get's from the files from env and create table" do
-      :aws_credentials_sup.start_link()
-
       opts = [
         database: "default",
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
@@ -261,7 +261,8 @@ defmodule IntegrationTest do
       assert response.status == 200
     end
 
-    @tag envs: %{
+    @tag capture_log: true,
+         envs: %{
            "AWS_CONFIG_FILE" => @path <> "config",
            "AWS_SHARED_CREDENTIALS_FILE" => @path <> "credentials_with_token"
          },
@@ -271,8 +272,6 @@ defmodule IntegrationTest do
            provider_options: %{credential_path: to_charlist(Path.expand("./"))}
          ]
     test "get's from the files from env with session token and create table" do
-      :aws_credentials_sup.start_link()
-
       opts = [
         database: "default",
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
@@ -284,7 +283,8 @@ defmodule IntegrationTest do
       assert response.status == 200
     end
 
-    @tag aws_credentials: [
+    @tag capture_log: true,
+         aws_credentials: [
            fail_if_unavailable: false,
            credential_providers: [:aws_credentials_file],
            provider_options: %{credential_path: to_charlist(@path)}
@@ -294,8 +294,6 @@ defmodule IntegrationTest do
         database: "default",
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
       ]
-
-      :aws_credentials_sup.start_link()
 
       req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
       response = Req.post!(req, athena: @create_table)
