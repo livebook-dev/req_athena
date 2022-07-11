@@ -136,7 +136,7 @@ defmodule ReqAthena do
     output_config =
       case {options[:output_location], options[:workgroup]} do
         {output, workgroup} when is_empty(output) and is_empty(workgroup) ->
-          raise "Options must have :workgroup, :output_location or both defined"
+          raise ArgumentError, "options must have :workgroup, :output_location or both defined"
 
         {output, workgroup} when is_empty(output) ->
           %{WorkGroup: workgroup}

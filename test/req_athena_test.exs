@@ -271,8 +271,8 @@ defmodule ReqAthenaTest do
 
     req = Req.new(adapter: fake_athena()) |> ReqAthena.attach(opts)
 
-    assert_raise RuntimeError,
-                 "Options must have :workgroup, :output_location or both defined",
+    assert_raise ArgumentError,
+                 "options must have :workgroup, :output_location or both defined",
                  fn -> Req.post!(req, athena: "select * from iris") end
   end
 
