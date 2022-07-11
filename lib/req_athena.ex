@@ -13,11 +13,14 @@ defmodule ReqAthena do
     access_key_id
     secret_access_key
     token
+    workgroup
     region
     database
     athena
     output_location
   )a
+
+  defguardp is_empty(value) when value in [nil, ""]
 
   @doc """
   Attaches to Req request.
@@ -34,11 +37,15 @@ defmodule ReqAthena do
 
     * `:database` - Required. The AWS Athena database name.
 
-    * `:output_location` - Required. The S3 url location to output AWS Athena query results.
+    * `:output_location` - Conditional. The S3 url location to output AWS Athena query results.
+
+    * `:workgroup` - Conditional. The AWS Athena workgroup.
 
     * `:athena` - Required. The query to execute. It can be a plain sql string or
       a `{query, params}` tuple, where `query` can contain `?` placeholders and `params`
       is a list of corresponding values.
+
+  Conditional fields must always be defined, and can be one of the fields or both.
 
   If you want to set any of these options when attaching the plugin, pass them as the second argument.
 
@@ -126,11 +133,26 @@ defmodule ReqAthena do
   end
 
   defp put_request_body(%{options: options} = request, query) when is_binary(query) do
-    body = %{
-      QueryExecutionContext: %{Database: options.database},
-      ResultConfiguration: %{OutputLocation: options.output_location},
-      QueryString: query
-    }
+    output_config =
+      case {options[:output_location], options[:workgroup]} do
+        {output, workgroup} when is_empty(output) and is_empty(workgroup) ->
+          raise ArgumentError, "options must have :workgroup, :output_location or both defined"
+
+        {output, workgroup} when is_empty(output) ->
+          %{WorkGroup: workgroup}
+
+        {output, workgroup} when is_empty(workgroup) ->
+          %{ResultConfiguration: %{OutputLocation: output}}
+
+        {output, workgroup} ->
+          %{WorkGroup: workgroup, ResultConfiguration: %{OutputLocation: output}}
+      end
+
+    body =
+      Map.merge(output_config, %{
+        QueryExecutionContext: %{Database: options.database},
+        QueryString: query
+      })
 
     client_request_token = generate_client_request_token(body)
     body = Map.put(body, :ClientRequestToken, client_request_token)
@@ -284,7 +306,7 @@ defmodule ReqAthena do
     request = Request.put_private(request, :athena_action, action)
 
     session_aws_header =
-      if request.options[:token] in [nil, ""],
+      if is_empty(request.options[:token]),
         do: [],
         else: [{"X-Amz-Security-Token", request.options.token}]
 
@@ -328,7 +350,7 @@ defmodule ReqAthena do
   defp get_credentials(options) do
     credentials_from_opts =
       for {k, v} <- options,
-          v in @credential_keys and v not in [nil, ""],
+          v in @credential_keys and not is_empty(v),
           do: {k, v},
           into: %{}
 

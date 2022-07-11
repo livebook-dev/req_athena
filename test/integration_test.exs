@@ -216,6 +216,49 @@ defmodule IntegrationTest do
     assert response.status == 200
   end
 
+  test "creates table inside AWS Athena's database with workgroup" do
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      workgroup: "primary"
+    ]
+
+    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+    response = Req.post!(req, athena: @create_table)
+    result = response.body
+
+    assert response.status == 200
+
+    assert result.columns == []
+    refute result.statement_name
+    assert is_binary(result.query_execution_id)
+    assert result.output_location =~ "#{result.query_execution_id}.txt"
+  end
+
+  test "creates table inside AWS Athena's database with workgroup and output location" do
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      workgroup: "primary",
+      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+    ]
+
+    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+    response = Req.post!(req, athena: @create_table)
+    result = response.body
+
+    assert response.status == 200
+
+    assert result.columns == []
+    refute result.statement_name
+    assert is_binary(result.query_execution_id)
+    assert result.output_location == "#{opts[:output_location]}/#{result.query_execution_id}.txt"
+  end
+
   if Code.ensure_loaded?(:aws_credentials) do
     describe "with aws_credentials" do
       @path Path.expand("./config/") <> "/"
