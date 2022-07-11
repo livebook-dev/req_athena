@@ -200,6 +200,82 @@ defmodule ReqAthenaTest do
            }
   end
 
+  test "executes a query with workgroup" do
+    validations = %{
+      "StartQueryExecution" => fn request ->
+        assert Jason.decode!(request.body) == %{
+                 "ClientRequestToken" => "D6C3709EDB68939EA3B176B2961177C9",
+                 "QueryExecutionContext" => %{"Database" => "my_awesome_database"},
+                 "QueryString" => "select * from iris",
+                 "WorkGroup" => "default"
+               }
+      end
+    }
+
+    results = %{
+      "GetQueryExecution" => fn request ->
+        data = %{
+          QueryExecution: %{
+            Query: "select * from iris",
+            QueryExecutionContext: %{
+              Catalog: "AwsDataCatalog",
+              Database: "my_awesome_database"
+            },
+            QueryExecutionId: "some uuid",
+            ResultConfiguration: %{
+              OutputLocation: "s3://foo"
+            },
+            StatementType: "DDL",
+            Status: %{
+              State: "SUCCEEDED"
+            },
+            WorkGroup: "default"
+          }
+        }
+
+        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+      end
+    }
+
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      workgroup: "default"
+    ]
+
+    assert response =
+             Req.new(adapter: fake_athena(validations, results))
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris")
+
+    assert response.status == 200
+
+    assert response.body == %ReqAthena.Result{
+             columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
+             rows: [[1, "Ale"], [2, "Wojtek"]],
+             statement_name: nil
+           }
+  end
+
+  test "raises the request when neither workgroup and output location are defined" do
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database"
+    ]
+
+    req = Req.new(adapter: fake_athena()) |> ReqAthena.attach(opts)
+
+    assert_raise RuntimeError,
+                 "Options must have :workgroup, :output_location or both defined",
+                 fn -> Req.post!(req, athena: "select * from iris") end
+  end
+
   defp fake_athena, do: fake_athena(%{})
   defp fake_athena(map) when is_map(map), do: fake_athena(map, %{})
 
