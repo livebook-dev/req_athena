@@ -8,19 +8,220 @@ defmodule ReqAthenaTest do
   end
 
   test "executes a query string" do
-    fake_athena = fn
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    assert response =
+             Req.new(adapter: fake_athena())
+             |> Req.Request.put_header("x-auth", "my awesome auth header")
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris")
+
+    assert response.status == 200
+
+    assert response.body == %ReqAthena.Result{
+             columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
+             rows: [[1, "Ale"], [2, "Wojtek"]],
+             statement_name: nil
+           }
+  end
+
+  test "executes a parameterized query" do
+    validations = %{
+      "StartQueryExecution" => fn request ->
+        if Req.Request.get_private(request, :athena_query_execution_id, nil) do
+          assert Jason.decode!(request.body) == %{
+                   "ClientRequestToken" => "74591A3EBE23508682D20337984FC399",
+                   "QueryExecutionContext" => %{
+                     "Database" => "my_awesome_database"
+                   },
+                   "QueryString" => "EXECUTE query_8CD6B60FAFA18EBFA8719A6EAC192624 USING 1",
+                   "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
+                 }
+        else
+          assert Jason.decode!(request.body) == %{
+                   "ClientRequestToken" => "3F8FCA289E16CFEC152E6F8C2596DA6B",
+                   "QueryExecutionContext" => %{
+                     "Database" => "my_awesome_database"
+                   },
+                   "QueryString" =>
+                     "PREPARE query_8CD6B60FAFA18EBFA8719A6EAC192624 FROM select * from iris where id = ?",
+                   "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
+                 }
+        end
+      end
+    }
+
+    results = %{
+      "GetQueryResults" => fn request ->
+        data =
+          if Req.Request.get_private(request, :athena_parameterized?) do
+            %{"ResultSet" => %{"Output" => ""}}
+          else
+            %{
+              "ResultSet" => %{
+                "ColumnInfos" => [
+                  %{
+                    "CaseSensitive" => false,
+                    "CatalogName" => "hive",
+                    "Label" => "id",
+                    "Name" => "id",
+                    "Nullable" => "UNKNOWN",
+                    "Precision" => 2_147_483_647,
+                    "Scale" => 0,
+                    "SchemaName" => "",
+                    "TableName" => "",
+                    "Type" => "integer"
+                  },
+                  %{
+                    "CaseSensitive" => false,
+                    "CatalogName" => "hive",
+                    "Label" => "name",
+                    "Name" => "name",
+                    "Nullable" => "UNKNOWN",
+                    "Precision" => 2_147_483_647,
+                    "Scale" => 0,
+                    "SchemaName" => "",
+                    "TableName" => "",
+                    "Type" => "varchar"
+                  }
+                ],
+                "ResultRows" => [
+                  %{"Data" => ["id", "name"]},
+                  %{"Data" => ["1", "Ale"]}
+                ],
+                "ResultSetMetadata" => %{
+                  "ColumnInfo" => [
+                    %{
+                      "CaseSensitive" => false,
+                      "CatalogName" => "hive",
+                      "Label" => "id",
+                      "Name" => "id",
+                      "Nullable" => "UNKNOWN",
+                      "Precision" => 2_147_483_647,
+                      "Scale" => 0,
+                      "SchemaName" => "",
+                      "TableName" => "",
+                      "Type" => "integer"
+                    },
+                    %{
+                      "CaseSensitive" => false,
+                      "CatalogName" => "hive",
+                      "Label" => "name",
+                      "Name" => "name",
+                      "Nullable" => "UNKNOWN",
+                      "Precision" => 2_147_483_647,
+                      "Scale" => 0,
+                      "SchemaName" => "",
+                      "TableName" => "",
+                      "Type" => "varchar"
+                    }
+                  ]
+                },
+                "Rows" => [
+                  %{"Data" => ["id", "name"]},
+                  %{"Data" => [1, "\"Ale\""]}
+                ]
+              },
+              "UpdateCount" => 0
+            }
+          end
+
+        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+      end
+    }
+
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    assert response =
+             Req.new(adapter: fake_athena(validations, results))
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: {"select * from iris where id = ?", [1]})
+
+    assert response.status == 200
+
+    assert response.body == %ReqAthena.Result{
+             columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
+             rows: [[1, "Ale"]],
+             statement_name: "query_8CD6B60FAFA18EBFA8719A6EAC192624"
+           }
+  end
+
+  test "executes a query with session token" do
+    token_validation = fn request ->
+      assert Req.Request.get_header(request, "x-amz-security-token") == [
+               "giant dummy session token"
+             ]
+    end
+
+    validations = %{
+      "GetQueryResults" => token_validation,
+      "GetQueryExecution" => token_validation,
+      "StartQueryExecution" => token_validation
+    }
+
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      token: "giant dummy session token",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    assert response =
+             Req.new(adapter: fake_athena(validations))
+             |> Req.Request.put_header("x-auth", "my awesome auth header")
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris")
+
+    assert response.status == 200
+
+    assert response.body == %ReqAthena.Result{
+             columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
+             rows: [[1, "Ale"], [2, "Wojtek"]],
+             statement_name: nil
+           }
+  end
+
+  defp fake_athena, do: fake_athena(%{})
+  defp fake_athena(map) when is_map(map), do: fake_athena(map, %{})
+
+  defp fake_athena(validations, results) do
+    fn
       %{private: %{athena_action: "GetQueryResults"}} = request ->
-        assert Jason.decode!(request.body) == %{"QueryExecutionId" => "an uuid"}
         assert URI.to_string(request.url) == "https://athena.us-east-1.amazonaws.com"
         assert Req.Request.get_header(request, "x-amz-target") == ["AmazonAthena.GetQueryResults"]
         assert Req.Request.get_header(request, "host") == ["athena.us-east-1.amazonaws.com"]
         assert Req.Request.get_header(request, "content-type") == ["application/x-amz-json-1.1"]
-        assert Req.Request.get_header(request, "x-auth") == ["my awesome auth header"]
 
         [value] = Req.Request.get_header(request, "authorization")
         assert value =~ "us-east-1/athena/aws4_request"
 
-        data = %{
+        if fun = validations["GetQueryResults"] do
+          fun.(request)
+        else
+          assert Jason.decode!(request.body) == %{"QueryExecutionId" => "an uuid"}
+        end
+
+        original_data = %{
           "ResultSet" => %{
             "ColumnInfos" => [
               %{
@@ -90,10 +291,13 @@ defmodule ReqAthenaTest do
           "UpdateCount" => 0
         }
 
-        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+        if fun = results["GetQueryResults"] do
+          fun.(request)
+        else
+          {request, %Req.Response{status: 200, body: Jason.encode!(original_data)}}
+        end
 
       %{private: %{athena_action: "GetQueryExecution"}} = request ->
-        assert Jason.decode!(request.body) == %{"QueryExecutionId" => "an uuid"}
         assert URI.to_string(request.url) == "https://athena.us-east-1.amazonaws.com"
 
         assert Req.Request.get_header(request, "x-amz-target") == [
@@ -106,7 +310,13 @@ defmodule ReqAthenaTest do
         [value] = Req.Request.get_header(request, "authorization")
         assert value =~ "us-east-1/athena/aws4_request"
 
-        data = %{
+        if fun = validations["GetQueryExecution"] do
+          fun.(request)
+        else
+          assert Jason.decode!(request.body) == %{"QueryExecutionId" => "an uuid"}
+        end
+
+        original_data = %{
           QueryExecution: %{
             Query: "select * from iris",
             QueryExecutionContext: %{
@@ -125,18 +335,13 @@ defmodule ReqAthenaTest do
           }
         }
 
-        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+        if fun = results["GetQueryExecution"] do
+          fun.(request)
+        else
+          {request, %Req.Response{status: 200, body: Jason.encode!(original_data)}}
+        end
 
       %{private: %{athena_action: "StartQueryExecution"}} = request ->
-        assert Jason.decode!(request.body) == %{
-                 "ClientRequestToken" => "279A8BD03538A2F33C1B13DF28FF1966",
-                 "QueryExecutionContext" => %{
-                   "Database" => "my_awesome_database"
-                 },
-                 "QueryString" => "select * from iris",
-                 "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
-               }
-
         assert URI.to_string(request.url) == "https://athena.us-east-1.amazonaws.com"
 
         assert Req.Request.get_header(request, "x-amz-target") == [
@@ -149,32 +354,26 @@ defmodule ReqAthenaTest do
         [value] = Req.Request.get_header(request, "authorization")
         assert value =~ "us-east-1/athena/aws4_request"
 
-        data = %{QueryExecutionId: "an uuid"}
-        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+        if fun = validations["StartQueryExecution"] do
+          fun.(request)
+        else
+          assert Jason.decode!(request.body) == %{
+                   "ClientRequestToken" => "279A8BD03538A2F33C1B13DF28FF1966",
+                   "QueryExecutionContext" => %{
+                     "Database" => "my_awesome_database"
+                   },
+                   "QueryString" => "select * from iris",
+                   "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
+                 }
+        end
+
+        original_data = %{QueryExecutionId: "an uuid"}
+
+        if fun = results["StartQueryExecution"] do
+          fun.(request)
+        else
+          {request, %Req.Response{status: 200, body: Jason.encode!(original_data)}}
+        end
     end
-
-    opts = [
-      access_key_id: "some key",
-      secret_access_key: "dummy",
-      region: "us-east-1",
-      database: "my_awesome_database",
-      output_location: "s3://foo"
-    ]
-
-    assert response =
-             Req.new(adapter: fake_athena)
-             |> Req.Request.put_header("x-auth", "my awesome auth header")
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris")
-
-    assert response.status == 200
-
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"], [2, "Wojtek"]],
-             statement_name: nil
-           }
   end
 end
