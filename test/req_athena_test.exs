@@ -162,6 +162,45 @@ defmodule ReqAthenaTest do
            }
   end
 
+  test "executes a query with session token" do
+    token_validation = fn request ->
+      assert Req.Request.get_header(request, "x-amz-security-token") == [
+               "giant dummy session token"
+             ]
+    end
+
+    validations = %{
+      "GetQueryResults" => token_validation,
+      "GetQueryExecution" => token_validation,
+      "StartQueryExecution" => token_validation
+    }
+
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      token: "giant dummy session token",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    assert response =
+             Req.new(adapter: fake_athena(validations))
+             |> Req.Request.put_header("x-auth", "my awesome auth header")
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris")
+
+    assert response.status == 200
+
+    assert response.body == %ReqAthena.Result{
+             columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
+             rows: [[1, "Ale"], [2, "Wojtek"]],
+             statement_name: nil
+           }
+  end
+
   defp fake_athena, do: fake_athena(%{})
   defp fake_athena(map) when is_map(map), do: fake_athena(map, %{})
 

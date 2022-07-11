@@ -12,6 +12,7 @@ defmodule ReqAthena do
   @allowed_options ~w(
     access_key_id
     secret_access_key
+    token
     region
     database
     athena
@@ -26,6 +27,8 @@ defmodule ReqAthena do
     * `:access_key_id` - Required. The Access Key ID from AWS credentials.
 
     * `:secret_access_key` - Required. The Secret Access Key from AWS credentials.
+
+    * `:token` - Optional. The Session Token from AWS credentials.
 
     * `:region` - Required. The AWS region where AWS Athena is installed.
 
@@ -281,8 +284,8 @@ defmodule ReqAthena do
     request = Request.put_private(request, :athena_action, action)
 
     session_aws_header =
-      if token = request.options[:token],
-        do: [{"X-Amz-Security-Token", token}],
+      unless request.options[:token] in [nil, ""],
+        do: [{"X-Amz-Security-Token", request.options.token}],
         else: []
 
     aws_headers =

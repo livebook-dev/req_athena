@@ -200,6 +200,22 @@ defmodule IntegrationTest do
                  fn -> Req.post!(req, http_errors: :raise, athena: {"SELECT ? + 10", ["foo"]}) end
   end
 
+  test "creates table inside AWS Athena's database with session credentials" do
+    opts = [
+      access_key_id: System.fetch_env!("AWS_TOKEN_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_TOKEN_SECRET_ACCESS_KEY"),
+      token: System.fetch_env!("AWS_TOKEN_SESSION_TOKEN"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+    ]
+
+    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+    response = Req.post!(req, athena: @create_table)
+
+    assert response.status == 200
+  end
+
   if Code.ensure_loaded?(:aws_credentials) do
     describe "with aws_credentials" do
       @path Path.expand("./config/") <> "/"
