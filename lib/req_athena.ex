@@ -284,9 +284,9 @@ defmodule ReqAthena do
     request = Request.put_private(request, :athena_action, action)
 
     session_aws_header =
-      unless request.options[:token] in [nil, ""],
-        do: [{"X-Amz-Security-Token", request.options.token}],
-        else: []
+      if request.options[:token] in [nil, ""],
+        do: [],
+        else: [{"X-Amz-Security-Token", request.options.token}]
 
     aws_headers =
       [
