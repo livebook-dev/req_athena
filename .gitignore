@@ -25,6 +25,7 @@ req_athena-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
-# AWS INI files
+# AWS INI files&credentials
+.env*
 /config/*credentials*
 /config/*config*
