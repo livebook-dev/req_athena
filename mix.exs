@@ -43,6 +43,7 @@ defmodule ReqAthena.MixProject do
     [
       {:req, "~> 0.3.0"},
       {:aws_signature, "~> 0.3.0"},
+      # {:aws_credentials, github: "aws-beam/aws_credentials", runtime: false, optional: true},
       {:table, "~> 0.1.1", optional: true},
       {:tzdata, "~> 1.1.1", only: :test},
       {:ex_doc, ">= 0.0.0", only: :docs, runtime: false}
