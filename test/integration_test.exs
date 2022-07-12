@@ -302,7 +302,7 @@ defmodule IntegrationTest do
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"),
-      force_new_result: true
+      cache_query: false
     ]
 
     req =

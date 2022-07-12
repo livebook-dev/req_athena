@@ -18,7 +18,7 @@ defmodule ReqAthena do
     database
     athena
     output_location
-    force_new_result
+    cache_query
   )a
 
   defguardp is_empty(value) when value in [nil, ""]
@@ -42,7 +42,7 @@ defmodule ReqAthena do
 
     * `:workgroup` - Conditional. The AWS Athena workgroup.
 
-    * `:force_new_result` - Optional. Forces a non-cached result from AWS Athena.
+    * `:cache_query` - Optional. Forces a non-cached result from AWS Athena.
 
     * `:athena` - Required. The query to execute. It can be a plain sql string or
       a `{query, params}` tuple, where `query` can contain `?` placeholders and `params`
@@ -112,35 +112,35 @@ defmodule ReqAthena do
 
   defp run(%Request{options: %{athena: query} = options} = request) do
     url = "https://athena.#{options.region}.amazonaws.com"
-    force_new_result = options[:force_new_result] || false
+    cache_query = Map.get(options, :cache_query, true)
 
     %{request | url: URI.parse(url)}
-    |> put_request_body(query, force_new_result)
+    |> put_request_body(query, cache_query)
     |> sign_request("StartQueryExecution")
     |> Request.append_response_steps(athena_result: &handle_athena_result/1)
   end
 
   defp run(request), do: request
 
-  defp put_request_body(request, {query, []}, force_new_result) do
-    put_request_body(request, query, force_new_result)
+  defp put_request_body(request, {query, []}, cache_query) do
+    put_request_body(request, query, cache_query)
   end
 
-  defp put_request_body(request, {query, _params}, force_new_result) do
+  defp put_request_body(request, {query, _params}, cache_query) do
     hash =
-      if force_new_result,
-        do: :os.system_time() |> to_string(),
-        else: :erlang.md5(query) |> Base.encode16()
+      if cache_query,
+        do: :erlang.md5(query) |> Base.encode16(),
+        else: :os.system_time() |> to_string()
 
     statement_name = "query_" <> hash
 
     request
-    |> put_request_body("PREPARE #{statement_name} FROM #{query}", force_new_result)
+    |> put_request_body("PREPARE #{statement_name} FROM #{query}", cache_query)
     |> Request.put_private(:athena_parameterized?, true)
     |> Request.put_private(:athena_statement_name, statement_name)
   end
 
-  defp put_request_body(%{options: options} = request, query, force_new_result)
+  defp put_request_body(%{options: options} = request, query, cache_query)
        when is_binary(query) do
     output_config =
       case {options[:output_location], options[:workgroup]} do
@@ -163,17 +163,17 @@ defmodule ReqAthena do
         QueryString: query
       })
 
-    client_request_token = generate_client_request_token(body, force_new_result)
+    client_request_token = generate_client_request_token(body, cache_query)
     body = Map.put(body, :ClientRequestToken, client_request_token)
 
     %{request | body: Jason.encode!(body)}
   end
 
-  defp generate_client_request_token(parameters, force_new_result) do
+  defp generate_client_request_token(parameters, cache_query) do
     parameters =
-      if force_new_result,
-        do: Map.put(parameters, :SystemTime, :os.system_time()),
-        else: parameters
+      if cache_query,
+        do: parameters,
+        else: Map.put(parameters, :SystemTime, :os.system_time())
 
     parameters
     |> :erlang.term_to_binary()
