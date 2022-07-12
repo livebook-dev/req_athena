@@ -259,6 +259,79 @@ defmodule IntegrationTest do
     assert result.output_location == "#{opts[:output_location]}/#{result.query_execution_id}.txt"
   end
 
+  test "returns the cached result from AWS Athena's response" do
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+    ]
+
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
+
+    query = """
+    SELECT id, type, tags, members, timestamp, visible
+      FROM planet
+     WHERE id = 470454
+       and type = 'relation'\
+    """
+
+    assert query_response = Req.post!(req, athena: query)
+    assert query_response.status == 200
+
+    result = query_response.body
+    query_execution_id = result.query_execution_id
+
+    assert result.columns == ~w(id type tags members timestamp visible)
+    refute result.statement_name
+    assert is_binary(result.query_execution_id)
+
+    assert response = Req.post!(req, athena: query)
+    assert response.status == 200
+
+    assert response.body.query_execution_id == query_execution_id
+  end
+
+  test "force new result from AWS Athena's response" do
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"),
+      force_new_result: true
+    ]
+
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
+
+    query = """
+    SELECT id, type, tags, members, timestamp, visible
+      FROM planet
+     WHERE id = 470454
+       and type = 'relation'\
+    """
+
+    assert query_response = Req.post!(req, athena: query)
+    assert query_response.status == 200
+
+    result = query_response.body
+    query_execution_id = result.query_execution_id
+
+    assert result.columns == ~w(id type tags members timestamp visible)
+    refute result.statement_name
+    assert is_binary(result.query_execution_id)
+
+    assert response = Req.post!(req, athena: query)
+    assert response.status == 200
+
+    refute response.body.query_execution_id == query_execution_id
+  end
+
   if Code.ensure_loaded?(:aws_credentials) do
     describe "with aws_credentials" do
       @path Path.expand("./config/") <> "/"
