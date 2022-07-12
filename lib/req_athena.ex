@@ -173,7 +173,7 @@ defmodule ReqAthena do
     parameters =
       if cache_query,
         do: parameters,
-        else: Map.put(parameters, :SystemTime, :os.system_time())
+        else: [parameters, :os.system_time()]
 
     parameters
     |> :erlang.term_to_binary()
