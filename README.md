@@ -1,6 +1,7 @@
 # ReqAthena
 
-[![Hex pm](http://img.shields.io/hexpm/v/req_athena.svg?style=flat)](https://hex.pm/packages/req_athena)
+[![Docs](https://img.shields.io/badge/hex.pm-docs-8e7ce6.svg)](https://hexdocs.pm/req_athena)
+[![Hex pm](http://img.shields.io/hexpm/v/req_athena.svg?style=flat&color=blue)](https://hex.pm/packages/req_athena)
 
 [Req](https://github.com/wojtekmach/req) plugin for [AWS Athena](https://docs.aws.amazon.com/athena/latest/APIReference/Welcome.html).
 
@@ -12,7 +13,7 @@ The struct implements the `Table.Reader` protocol and thus can be efficiently tr
 ```elixir
 Mix.install([
   {:req, "~> 0.3.0"},
-  {:req_athena, "~> 0.1.0"}
+  {:req_athena, "~> 0.1.1"}
 ])
 
 opts = [
