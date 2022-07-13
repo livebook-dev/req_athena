@@ -386,6 +386,8 @@ defmodule ReqAthena do
   @compile {:no_warn_undefined, :aws_credentials}
 
   defp get_credentials do
+    Application.put_env(:aws_credentials, :fail_if_unavailable, false)
+
     case Application.ensure_all_started(:aws_credentials) do
       {:ok, _} ->
         case :aws_credentials.get_credentials() do
