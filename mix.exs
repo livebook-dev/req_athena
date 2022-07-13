@@ -1,7 +1,7 @@
 defmodule ReqAthena.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.1.1"
   @description "Req plugin for AWS Athena"
 
   def project do
