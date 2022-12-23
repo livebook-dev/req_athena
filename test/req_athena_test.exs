@@ -33,6 +33,108 @@ defmodule ReqAthenaTest do
            }
   end
 
+  test "parses a response with a datum object missing" do
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    results = %{
+      "GetQueryResults" => fn request ->
+        data = %{
+          "ResultSet" => %{
+            "ColumnInfos" => [
+              %{
+                "CaseSensitive" => false,
+                "CatalogName" => "hive",
+                "Label" => "id",
+                "Name" => "id",
+                "Nullable" => "UNKNOWN",
+                "Precision" => 10,
+                "Scale" => 0,
+                "SchemaName" => "",
+                "TableName" => "",
+                "Type" => "integer"
+              },
+              %{
+                "CaseSensitive" => true,
+                "CatalogName" => "hive",
+                "Label" => "name",
+                "Name" => "name",
+                "Nullable" => "UNKNOWN",
+                "Precision" => 2_147_483_647,
+                "Scale" => 0,
+                "SchemaName" => "",
+                "TableName" => "",
+                "Type" => "varchar"
+              }
+            ],
+            "ResultRows" => [
+              %{"Data" => ["id", "name"]},
+              %{"Data" => ["1", "Ale"]},
+              %{"Data" => ["2", "Wojtek"]}
+            ],
+            "ResultSetMetadata" => %{
+              "ColumnInfo" => [
+                %{
+                  "CaseSensitive" => false,
+                  "CatalogName" => "hive",
+                  "Label" => "id",
+                  "Name" => "id",
+                  "Nullable" => "UNKNOWN",
+                  "Precision" => 10,
+                  "Scale" => 0,
+                  "SchemaName" => "",
+                  "TableName" => "",
+                  "Type" => "integer"
+                },
+                %{
+                  "CaseSensitive" => true,
+                  "CatalogName" => "hive",
+                  "Label" => "name",
+                  "Name" => "name",
+                  "Nullable" => "UNKNOWN",
+                  "Precision" => 2_147_483_647,
+                  "Scale" => 0,
+                  "SchemaName" => "",
+                  "TableName" => "",
+                  "Type" => "varchar"
+                }
+              ]
+            },
+            "Rows" => [
+              %{"Data" => [%{"VarCharValue" => "id"}, %{"VarCharValue" => "name"}]},
+              %{"Data" => [%{"VarCharValue" => "1"}, %{"VarCharValue" => "Ale"}]},
+              %{"Data" => [%{"VarCharValue" => "2"}, %{}]}
+            ]
+          },
+          "UpdateCount" => 0
+        }
+
+        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+      end
+    }
+
+    response =
+      Req.new(adapter: fake_athena(%{}, results))
+      |> Req.Request.put_header("x-auth", "my awesome auth header")
+      |> ReqAthena.attach(opts)
+      |> Req.post!(athena: "select * from iris")
+
+    assert response.status == 200
+
+    assert response.body == %ReqAthena.Result{
+             columns: ["id", "name"],
+             output_location: "s3://foo",
+             query_execution_id: "an uuid",
+             rows: [[1, "Ale"], [2, ""]],
+             statement_name: nil
+           }
+  end
+
   test "executes a parameterized query" do
     validations = %{
       "StartQueryExecution" => fn request ->
@@ -74,14 +176,14 @@ defmodule ReqAthenaTest do
                     "Label" => "id",
                     "Name" => "id",
                     "Nullable" => "UNKNOWN",
-                    "Precision" => 2_147_483_647,
+                    "Precision" => 10,
                     "Scale" => 0,
                     "SchemaName" => "",
                     "TableName" => "",
                     "Type" => "integer"
                   },
                   %{
-                    "CaseSensitive" => false,
+                    "CaseSensitive" => true,
                     "CatalogName" => "hive",
                     "Label" => "name",
                     "Name" => "name",
@@ -93,10 +195,7 @@ defmodule ReqAthenaTest do
                     "Type" => "varchar"
                   }
                 ],
-                "ResultRows" => [
-                  %{"Data" => ["id", "name"]},
-                  %{"Data" => ["1", "Ale"]}
-                ],
+                "ResultRows" => [%{"Data" => ["id", "name"]}, %{"Data" => ["1", "Ale"]}],
                 "ResultSetMetadata" => %{
                   "ColumnInfo" => [
                     %{
@@ -105,14 +204,14 @@ defmodule ReqAthenaTest do
                       "Label" => "id",
                       "Name" => "id",
                       "Nullable" => "UNKNOWN",
-                      "Precision" => 2_147_483_647,
+                      "Precision" => 10,
                       "Scale" => 0,
                       "SchemaName" => "",
                       "TableName" => "",
                       "Type" => "integer"
                     },
                     %{
-                      "CaseSensitive" => false,
+                      "CaseSensitive" => true,
                       "CatalogName" => "hive",
                       "Label" => "name",
                       "Name" => "name",
@@ -126,8 +225,8 @@ defmodule ReqAthenaTest do
                   ]
                 },
                 "Rows" => [
-                  %{"Data" => ["id", "name"]},
-                  %{"Data" => [1, "\"Ale\""]}
+                  %{"Data" => [%{"VarCharValue" => "id"}, %{"VarCharValue" => "name"}]},
+                  %{"Data" => [%{"VarCharValue" => "1"}, %{"VarCharValue" => "Ale"}]}
                 ]
               },
               "UpdateCount" => 0
@@ -305,14 +404,14 @@ defmodule ReqAthenaTest do
                 "Label" => "id",
                 "Name" => "id",
                 "Nullable" => "UNKNOWN",
-                "Precision" => 2_147_483_647,
+                "Precision" => 10,
                 "Scale" => 0,
                 "SchemaName" => "",
                 "TableName" => "",
                 "Type" => "integer"
               },
               %{
-                "CaseSensitive" => false,
+                "CaseSensitive" => true,
                 "CatalogName" => "hive",
                 "Label" => "name",
                 "Name" => "name",
@@ -337,14 +436,14 @@ defmodule ReqAthenaTest do
                   "Label" => "id",
                   "Name" => "id",
                   "Nullable" => "UNKNOWN",
-                  "Precision" => 2_147_483_647,
+                  "Precision" => 10,
                   "Scale" => 0,
                   "SchemaName" => "",
                   "TableName" => "",
                   "Type" => "integer"
                 },
                 %{
-                  "CaseSensitive" => false,
+                  "CaseSensitive" => true,
                   "CatalogName" => "hive",
                   "Label" => "name",
                   "Name" => "name",
@@ -358,9 +457,9 @@ defmodule ReqAthenaTest do
               ]
             },
             "Rows" => [
-              %{"Data" => ["id", "name"]},
-              %{"Data" => [1, "\"Ale\""]},
-              %{"Data" => [2, "\"Wojtek\""]}
+              %{"Data" => [%{"VarCharValue" => "id"}, %{"VarCharValue" => "name"}]},
+              %{"Data" => [%{"VarCharValue" => "1"}, %{"VarCharValue" => "Ale"}]},
+              %{"Data" => [%{"VarCharValue" => "2"}, %{"VarCharValue" => "Wojtek"}]}
             ]
           },
           "UpdateCount" => 0

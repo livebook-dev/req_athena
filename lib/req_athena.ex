@@ -281,16 +281,16 @@ defmodule ReqAthena do
       case body do
         %{
           "ResultSet" => %{
-            "ColumnInfos" => fields,
-            "ResultRows" => [%{"Data" => columns} | rows]
+            "ResultSetMetadata" => %{"ColumnInfo" => columns_info},
+            "Rows" => [%{"Data" => column_labels} | rows]
           }
         } ->
           %ReqAthena.Result{
             query_execution_id: query_execution_id,
             output_location: output_location,
             statement_name: statement_name,
-            rows: decode_rows(rows, fields),
-            columns: columns
+            rows: decode_rows(rows, columns_info),
+            columns: decode_column_labels(column_labels)
           }
 
         %{"ResultSet" => _} ->
@@ -307,11 +307,26 @@ defmodule ReqAthena do
     {Request.halt(request), %{response | body: result}}
   end
 
-  defp decode_rows(rows, fields) do
-    Enum.map(rows, fn %{"Data" => columns} ->
-      Enum.with_index(columns, fn value, index ->
-        field = Enum.at(fields, index)
-        decode_value(value, field)
+  defp decode_column_labels(column_labels) do
+    Enum.map(column_labels, &Map.fetch!(&1, "VarCharValue"))
+  end
+
+  defp decode_rows(rows, columns_info) do
+    column_types = Enum.map(columns_info, &Map.take(&1, ["Type"]))
+
+    Enum.map(rows, fn %{"Data" => datum} ->
+      Enum.with_index(datum, fn datum_object, index ->
+        value =
+          case datum_object do
+            %{"VarCharValue" => value} ->
+              value
+
+            %{} ->
+              ""
+          end
+
+        column_type = Enum.at(column_types, index)
+        decode_value(value, column_type)
       end)
     end)
   end
