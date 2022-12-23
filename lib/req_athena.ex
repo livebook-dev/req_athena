@@ -314,18 +314,9 @@ defmodule ReqAthena do
   defp decode_rows(rows, columns_info) do
     column_types = Enum.map(columns_info, &Map.take(&1, ["Type"]))
 
-    Enum.map(rows, fn %{"Data" => datum} ->
-      Enum.with_index(datum, fn datum_object, index ->
-        value =
-          case datum_object do
-            %{"VarCharValue" => value} ->
-              value
-
-            %{} ->
-              ""
-          end
-
-        column_type = Enum.at(column_types, index)
+    Enum.map(rows, fn %{"Data" => datums} ->
+      Enum.zip_with([datums, column_types], fn [datum, column_type] ->
+        value = get_in(datum, ["VarCharValue"]) || ""
         decode_value(value, column_type)
       end)
     end)
