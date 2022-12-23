@@ -10,7 +10,7 @@ defmodule ReqAthena.MixProject do
       version: @version,
       description: @description,
       name: "ReqAthena",
-      elixir: "~> 1.12",
+      elixir: "~> 1.14",
       preferred_cli_env: [
         "test.all": :test,
         docs: :docs,
