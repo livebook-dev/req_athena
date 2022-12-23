@@ -308,8 +308,7 @@ defmodule ReqAthena do
   end
 
   defp decode_column_labels(column_labels) do
-    column_labels
-    |> Enum.map(&Map.fetch!(&1, "VarCharValue"))
+   Enum.map(column_labels, &Map.fetch!(&1, "VarCharValue"))
   end
 
   defp decode_rows(rows, columns_info) do
