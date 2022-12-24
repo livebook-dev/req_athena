@@ -316,7 +316,7 @@ defmodule ReqAthena do
 
     Enum.map(rows, fn %{"Data" => datums} ->
       Enum.zip_with([datums, column_types], fn [datum, column_type] ->
-        value = get_in(datum, ["VarCharValue"]) || ""
+        value = datum["VarCharValue"] || ""
         decode_value(value, column_type)
       end)
     end)
