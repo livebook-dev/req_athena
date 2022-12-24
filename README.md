@@ -13,7 +13,7 @@ The struct implements the `Table.Reader` protocol and thus can be efficiently tr
 ```elixir
 Mix.install([
   {:req, "~> 0.3.0"},
-  {:req_athena, "~> 0.1.1"}
+  {:req_athena, "~> 0.1.2"}
 ])
 
 opts = [

@@ -1,7 +1,7 @@
 defmodule ReqAthena.MixProject do
   use Mix.Project
 
-  @version "0.1.1"
+  @version "0.1.2"
   @description "Req plugin for AWS Athena"
 
   def project do
@@ -10,7 +10,7 @@ defmodule ReqAthena.MixProject do
       version: @version,
       description: @description,
       name: "ReqAthena",
-      elixir: "~> 1.12",
+      elixir: "~> 1.14",
       preferred_cli_env: [
         "test.all": :test,
         docs: :docs,
