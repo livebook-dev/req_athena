@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.1.2](https://github.com/livebook-dev/req_athena/tree/v0.1.2) (2022-12-23)
 
+### Changed
+
+- Use `Enum.zip_with` instead ([#29](https://github.com/livebook-dev/req_athena/pull/29))
+
 ### Fixed
 
-- Get query's response from a different part of `GetQueryResults` response ([#27](https://github.com/livebook-dev/req_athena/pull/27)
+- Get query's response from a different part of `GetQueryResults` response ([#27](https://github.com/livebook-dev/req_athena/pull/27))
 
 ## [v0.1.1](https://github.com/livebook-dev/req_athena/tree/v0.1.1) (2022-07-14)
 
