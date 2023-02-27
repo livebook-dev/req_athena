@@ -266,7 +266,12 @@ defmodule ReqAthena do
     statement_name = Req.Request.get_private(request, :athena_statement_name)
     athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
     {_, private} = Map.split(request.private, @athena_keys)
-    request = %{request | private: private}
+
+    request = %{
+      request
+      | private: private,
+        current_request_steps: Keyword.keys(request.request_steps)
+    }
 
     {Request.halt(request), Req.post!(request, athena: athena)}
   end
