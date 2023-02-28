@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Reusing a `Req.Request` not working ([#31](https://github.com/livebook-dev/req_athena/pull/31))
+- Fix reuse of `Req.Request` ([#31](https://github.com/livebook-dev/req_athena/pull/31))
 
 ## [v0.1.2](https://github.com/livebook-dev/req_athena/tree/v0.1.2) (2022-12-23)
 
