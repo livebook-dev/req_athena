@@ -110,17 +110,21 @@ defmodule ReqAthena do
 
   defp run(%Request{private: %{athena_action: _}} = request), do: request
 
-  defp run(%Request{options: %{athena: query} = options} = request) do
-    url = "https://athena.#{options.region}.amazonaws.com"
-    cache_query = Map.get(options, :cache_query, true)
+  defp run(request) do
+    if query = request.options[:athena] do
+      region = fetch_option!(request, :region)
 
-    %{request | url: URI.parse(url)}
-    |> put_request_body(query, cache_query)
-    |> sign_request("StartQueryExecution")
-    |> Request.append_response_steps(athena_result: &handle_athena_result/1)
+      url = "https://athena.#{region}.amazonaws.com"
+      cache_query = get_option(request, :cache_query, true)
+
+      %{request | url: URI.parse(url)}
+      |> put_request_body(query, cache_query)
+      |> sign_request("StartQueryExecution")
+      |> Request.append_response_steps(athena_result: &handle_athena_result/1)
+    else
+      request
+    end
   end
-
-  defp run(request), do: request
 
   defp put_request_body(request, {query, []}, cache_query) do
     put_request_body(request, query, cache_query)
@@ -128,9 +132,11 @@ defmodule ReqAthena do
 
   defp put_request_body(request, {query, _params}, cache_query) do
     hash =
-      if cache_query,
-        do: :erlang.md5(query) |> Base.encode16(),
-        else: :os.system_time() |> to_string()
+      if cache_query do
+        query |> :erlang.md5() |> Base.encode16()
+      else
+        :os.system_time() |> to_string()
+      end
 
     statement_name = "query_" <> hash
 
@@ -140,10 +146,10 @@ defmodule ReqAthena do
     |> Request.put_private(:athena_statement_name, statement_name)
   end
 
-  defp put_request_body(%{options: options} = request, query, cache_query)
+  defp put_request_body(request, query, cache_query)
        when is_binary(query) do
     output_config =
-      case {options[:output_location], options[:workgroup]} do
+      case {request.options[:output_location], request.options[:workgroup]} do
         {output, workgroup} when is_empty(output) and is_empty(workgroup) ->
           raise ArgumentError, "options must have :workgroup, :output_location or both defined"
 
@@ -159,7 +165,7 @@ defmodule ReqAthena do
 
     body =
       Map.merge(output_config, %{
-        QueryExecutionContext: %{Database: options.database},
+        QueryExecutionContext: %{Database: fetch_option!(request, :database)},
         QueryString: query
       })
 
@@ -171,9 +177,11 @@ defmodule ReqAthena do
 
   defp generate_client_request_token(parameters, cache_query) do
     parameters =
-      if cache_query,
-        do: parameters,
-        else: [parameters, :os.system_time()]
+      if cache_query do
+        parameters
+      else
+        [parameters, :os.system_time()]
+      end
 
     parameters
     |> :erlang.term_to_binary()
@@ -262,7 +270,7 @@ defmodule ReqAthena do
   @athena_keys ~w(athena_action athena_parameterized? athena_wait_count)a
 
   defp execute_prepared_query(request) do
-    {_, params} = request.options.athena
+    {_, params} = fetch_option!(request, :athena)
     statement_name = Req.Request.get_private(request, :athena_statement_name)
     athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
     {_, private} = Map.split(request.private, @athena_keys)
@@ -333,9 +341,11 @@ defmodule ReqAthena do
     request = Request.put_private(request, :athena_action, action)
 
     session_aws_header =
-      if is_empty(request.options[:token]),
-        do: [],
-        else: [{"X-Amz-Security-Token", request.options.token}]
+      if is_empty(request.options[:token]) do
+        []
+      else
+        [{"X-Amz-Security-Token", request.options.token}]
+      end
 
     aws_headers =
       [
@@ -370,23 +380,20 @@ defmodule ReqAthena do
   @credential_keys ~w(access_key_id secret_access_key region token)a
 
   defp maybe_put_aws_credentials(request) do
-    options = get_credentials(request.options)
-    %{request | options: Map.merge(request.options, options)}
+    Req.Request.merge_options(request, get_credentials(request.options))
   end
 
   defp get_credentials(options) do
     credentials_from_opts =
       for {k, v} <- options,
           v in @credential_keys and not is_empty(v),
-          do: {k, v},
-          into: %{}
+          do: {k, v}
 
     if Code.ensure_loaded?(:aws_credentials) do
       credentials =
         for {k, v} <- get_credentials(),
             k in @credential_keys and v != :undefined,
-            do: {k, v},
-            into: %{}
+            do: {k, v}
 
       Map.merge(credentials, credentials_from_opts)
     else
@@ -459,4 +466,23 @@ defmodule ReqAthena do
   end
 
   defp decode_value(value, _), do: value
+
+  # TODO: Use Req.Request.get_option/3 when Req 0.4.0 is out.
+  defp get_option(request, key, default) when is_atom(key) do
+    Map.get(request.options, key, default)
+  end
+
+  # TODO: Use Req.Request.fetch_option!/2 when Req 0.4.0 is out.
+  def fetch_option!(request, key) when is_atom(key) do
+    case Map.fetch(request.options, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        raise KeyError,
+          term: request.options,
+          key: key,
+          message: "option #{inspect(key)} is not set"
+    end
+  end
 end
