@@ -126,8 +126,6 @@ defmodule ReqAthena do
     end
   end
 
-  defp run(request), do: request
-
   defp put_request_body(request, {query, []}, cache_query) do
     put_request_body(request, query, cache_query)
   end
