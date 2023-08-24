@@ -2,8 +2,6 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
 env:
   otp: "25.0"
   elixir: "1.14.2"
