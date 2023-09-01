@@ -1,7 +1,7 @@
 defmodule ReqAthena.MixProject do
   use Mix.Project
 
-  @version "0.1.4"
+  @version "0.1.5"
   @description "Req plugin for AWS Athena"
 
   def project do
@@ -41,7 +41,7 @@ defmodule ReqAthena.MixProject do
 
   defp deps do
     [
-      {:req, "~> 0.3.5"},
+      {:req, "~> 0.3.5 or ~> 0.4.0"},
       {:aws_signature, "~> 0.3.0"},
       # {:aws_credentials, github: "aws-beam/aws_credentials", runtime: false, optional: true},
       {:table, "~> 0.1.1", optional: true},
