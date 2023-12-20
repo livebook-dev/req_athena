@@ -295,7 +295,33 @@ defmodule ReqAthenaTest do
              output_location: "s3://foo",
              query_execution_id: "an uuid",
              rows: [[1, "Ale"], [2, "Wojtek"]],
-             statement_name: nil
+             statement_name: nil,
+             metadata: [
+               %{
+                 "CaseSensitive" => false,
+                 "CatalogName" => "hive",
+                 "Label" => "id",
+                 "Name" => "id",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 10,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "integer"
+               },
+               %{
+                 "CaseSensitive" => true,
+                 "CatalogName" => "hive",
+                 "Label" => "name",
+                 "Name" => "name",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 2_147_483_647,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "varchar"
+               }
+             ]
            }
   end
 
