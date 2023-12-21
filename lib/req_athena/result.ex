@@ -19,7 +19,7 @@ defmodule ReqAthena.Result do
           statement_name: binary(),
           query_execution_id: binary(),
           output_location: binary(),
-          metadata: %{column_infos: [term()]}
+          metadata: [term()]
         }
 
   defstruct [
