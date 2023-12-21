@@ -30,12 +30,50 @@ defmodule ReqAthena.Result do
     columns: [],
     metadata: []
   ]
+
+  def athena_type_to_arrow(athena_type) do
+    case athena_type do
+      "boolean" ->
+        :boolean
+
+      "tinyint" ->
+        :integer
+
+      "smallint" ->
+        :integer
+
+      "int" ->
+        :integer
+
+      "integer" ->
+        :integer
+
+      "bigint" ->
+        :integer
+
+      "double" ->
+        :integer
+
+      "float" ->
+        :boolean
+
+      "tinyint" ->
+        :integer
+
+      "smallint" ->
+        :integer
+
+      "smallint" ->
+        :integer
+    end
+  end
 end
 
 if Code.ensure_loaded?(Table.Reader) do
   defimpl Table.Reader, for: ReqAthena.Result do
     def init(result) do
-      {:rows, %{{:athena, :column_infos} => result.metadata, columns: result.columns}, result.rows}
+      {:rows, %{{:athena, :column_infos} => result.metadata, columns: result.columns},
+       result.rows}
     end
   end
 end

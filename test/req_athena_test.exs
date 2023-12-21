@@ -31,31 +31,31 @@ defmodule ReqAthenaTest do
              rows: [[1, "Ale"], [2, "Wojtek"]],
              statement_name: nil,
              metadata: [
-              %{
-                "CaseSensitive" => false,
-                "CatalogName" => "hive",
-                "Label" => "id",
-                "Name" => "id",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 10,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "integer"
-              },
-              %{
-                "CaseSensitive" => true,
-                "CatalogName" => "hive",
-                "Label" => "name",
-                "Name" => "name",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 2_147_483_647,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "varchar"
-              }
-            ]
+               %{
+                 "CaseSensitive" => false,
+                 "CatalogName" => "hive",
+                 "Label" => "id",
+                 "Name" => "id",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 10,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "integer"
+               },
+               %{
+                 "CaseSensitive" => true,
+                 "CatalogName" => "hive",
+                 "Label" => "name",
+                 "Name" => "name",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 2_147_483_647,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "varchar"
+               }
+             ]
            }
   end
 
@@ -285,31 +285,31 @@ defmodule ReqAthenaTest do
              rows: [[1, "Ale"]],
              statement_name: "query_8CD6B60FAFA18EBFA8719A6EAC192624",
              metadata: [
-              %{
-                "CaseSensitive" => false,
-                "CatalogName" => "hive",
-                "Label" => "id",
-                "Name" => "id",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 10,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "integer"
-              },
-              %{
-                "CaseSensitive" => true,
-                "CatalogName" => "hive",
-                "Label" => "name",
-                "Name" => "name",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 2_147_483_647,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "varchar"
-              }
-            ]
+               %{
+                 "CaseSensitive" => false,
+                 "CatalogName" => "hive",
+                 "Label" => "id",
+                 "Name" => "id",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 10,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "integer"
+               },
+               %{
+                 "CaseSensitive" => true,
+                 "CatalogName" => "hive",
+                 "Label" => "name",
+                 "Name" => "name",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 2_147_483_647,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "varchar"
+               }
+             ]
            }
   end
 
