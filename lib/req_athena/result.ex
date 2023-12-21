@@ -19,7 +19,7 @@ defmodule ReqAthena.Result do
           statement_name: binary(),
           query_execution_id: binary(),
           output_location: binary(),
-          metadata: [term()]
+          metadata: %{column_infos: [term()]}
         }
 
   defstruct [
@@ -35,7 +35,7 @@ end
 if Code.ensure_loaded?(Table.Reader) do
   defimpl Table.Reader, for: ReqAthena.Result do
     def init(result) do
-      {:rows, %{{:athena, :types} => result.metadata, columns: result.columns}, result.rows}
+      {:rows, %{{:athena, :column_infos} => result.metadata, columns: result.columns}, result.rows}
     end
   end
 end
