@@ -303,7 +303,8 @@ defmodule ReqAthena do
             output_location: output_location,
             statement_name: statement_name,
             rows: decode_rows(rows, columns_info),
-            columns: decode_column_labels(column_labels)
+            columns: decode_column_labels(column_labels),
+            metadata: columns_info
           }
 
         %{"ResultSet" => _} ->

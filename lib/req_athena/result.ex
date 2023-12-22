@@ -10,6 +10,7 @@ defmodule ReqAthena.Result do
     * `statement_name` - The statement name from executed query;
     * `query_execution_id` - The id from executed query;
     * `output_location` - The S3 url location where the result was output.
+    * `metadata` - The columnInfo from https://docs.aws.amazon.com/athena/latest/APIReference/API_GetQueryResults.html
   """
 
   @type t :: %__MODULE__{
@@ -17,16 +18,25 @@ defmodule ReqAthena.Result do
           rows: [[term()]],
           statement_name: binary(),
           query_execution_id: binary(),
-          output_location: binary()
+          output_location: binary(),
+          metadata: [term()]
         }
 
-  defstruct [:statement_name, :query_execution_id, :output_location, rows: [], columns: []]
+  defstruct [
+    :statement_name,
+    :query_execution_id,
+    :output_location,
+    rows: [],
+    columns: [],
+    metadata: []
+  ]
 end
 
 if Code.ensure_loaded?(Table.Reader) do
   defimpl Table.Reader, for: ReqAthena.Result do
     def init(result) do
-      {:rows, %{columns: result.columns}, result.rows}
+      {:rows, %{{:athena, :column_infos} => result.metadata, columns: result.columns},
+       result.rows}
     end
   end
 end
