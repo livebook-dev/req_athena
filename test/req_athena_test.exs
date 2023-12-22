@@ -159,30 +159,30 @@ defmodule ReqAthenaTest do
              rows: [[1, "Ale"], [2, ""]],
              statement_name: nil,
              metadata: [
-              %{
-                "CaseSensitive" => false,
-                "CatalogName" => "hive",
-                "Label" => "id",
-                "Name" => "id",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 10,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "integer"
-              },
-              %{
-                "CaseSensitive" => true,
-                "CatalogName" => "hive",
-                "Label" => "name",
-                "Name" => "name",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 2_147_483_647,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "varchar"
-              }
+               %{
+                 "CaseSensitive" => false,
+                 "CatalogName" => "hive",
+                 "Label" => "id",
+                 "Name" => "id",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 10,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "integer"
+               },
+               %{
+                 "CaseSensitive" => true,
+                 "CatalogName" => "hive",
+                 "Label" => "name",
+                 "Name" => "name",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 2_147_483_647,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "varchar"
+               }
              ]
            }
   end
@@ -462,32 +462,32 @@ defmodule ReqAthenaTest do
              rows: [[1, "Ale"], [2, "Wojtek"]],
              statement_name: nil,
              metadata: [
-              %{
-                "CaseSensitive" => false,
-                "CatalogName" => "hive",
-                "Label" => "id",
-                "Name" => "id",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 10,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "integer"
-              },
-              %{
-                "CaseSensitive" => true,
-                "CatalogName" => "hive",
-                "Label" => "name",
-                "Name" => "name",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 2_147_483_647,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "varchar"
-              }
-            ]
-          }
+               %{
+                 "CaseSensitive" => false,
+                 "CatalogName" => "hive",
+                 "Label" => "id",
+                 "Name" => "id",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 10,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "integer"
+               },
+               %{
+                 "CaseSensitive" => true,
+                 "CatalogName" => "hive",
+                 "Label" => "name",
+                 "Name" => "name",
+                 "Nullable" => "UNKNOWN",
+                 "Precision" => 2_147_483_647,
+                 "Scale" => 0,
+                 "SchemaName" => "",
+                 "TableName" => "",
+                 "Type" => "varchar"
+               }
+             ]
+           }
   end
 
   test "raises the request when neither workgroup and output location are defined" do
