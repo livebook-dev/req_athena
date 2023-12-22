@@ -487,7 +487,7 @@ defmodule ReqAthenaTest do
                 "Type" => "varchar"
               }
             ]
-           }
+          }
   end
 
   test "raises the request when neither workgroup and output location are defined" do
