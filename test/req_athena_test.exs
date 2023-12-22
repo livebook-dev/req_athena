@@ -486,7 +486,7 @@ defmodule ReqAthenaTest do
                 "TableName" => "",
                 "Type" => "varchar"
               }
-
+            ]
            }
   end
 
