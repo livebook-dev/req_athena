@@ -28,7 +28,7 @@ req = Req.new() |> ReqAthena.attach(opts)
 
 # Create table from Registry of Open Data on AWS
 # See: https://registry.opendata.aws/osm/
-query = \"""
+query = """
 CREATE TABLE IF NOT EXISTS planet (
   id BIGINT,
   type STRING,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS planet (
 )
 STORED AS ORCFILE
 LOCATION 's3://osm-pds/planet/';
-\"""
+"""
 
 Req.post!(req, athena: query).body
 #=>
