@@ -29,7 +29,7 @@ req = Req.new() |> ReqAthena.attach(opts)
 # Create table from Registry of Open Data on AWS
 # See: https://registry.opendata.aws/osm/
 query = """
-CREATE TABLE IF NOT EXISTS planet (
+CREATE EXTERNAL TABLE IF NOT EXISTS planet (
   id BIGINT,
   type STRING,
   tags MAP<STRING,STRING>,
