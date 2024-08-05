@@ -216,7 +216,17 @@ defmodule ReqAthena do
       |> sign_request("GetQueryExecution")
       |> Req.post!()
 
-    {Request.halt(request), response}
+    halt(request, response)
+  end
+
+  if Kernel.function_exported?(Req.Request, :halt, 2) do
+    defp halt(request, response_or_exception) do
+      Request.halt(request, response_or_exception)
+    end
+  else
+    defp halt(request, response_or_exception) do
+      {Request.halt(request), response_or_exception}
+    end
   end
 
   @wait_delay 1000
@@ -236,11 +246,11 @@ defmodule ReqAthena do
 
         request = Request.put_private(request, :athena_wait_count, count + 1)
         Process.sleep(@wait_delay)
-        {Request.halt(request), Req.post!(request)}
+        halt(request, Req.post!(request))
 
       "RUNNING" ->
         Process.sleep(@wait_delay)
-        {Request.halt(request), Req.post!(request)}
+        halt(request, Req.post!(request))
 
       "SUCCEEDED" ->
         request =
@@ -252,14 +262,14 @@ defmodule ReqAthena do
           )
           |> Request.put_private(:athena_query_execution_id, query_execution_id)
 
-        {Request.halt(request), Req.post!(request)}
+        halt(request, Req.post!(request))
 
       "FAILED" ->
         if request.options[:http_errors] == :raise do
           raise RuntimeError,
                 "failed query with error: " <> query_status["AthenaError"]["ErrorMessage"]
         else
-          {Request.halt(request), %{response | body: body}}
+          halt(request, %{response | body: body})
         end
 
       _other_state ->
@@ -281,7 +291,7 @@ defmodule ReqAthena do
         current_request_steps: Keyword.keys(request.request_steps)
     }
 
-    {Request.halt(request), Req.post!(request, athena: athena)}
+    halt(request, Req.post!(request, athena: athena))
   end
 
   defp decode_result(request, response) do
@@ -318,7 +328,7 @@ defmodule ReqAthena do
           body
       end
 
-    {Request.halt(request), %{response | body: result}}
+    halt(request, %{response | body: result})
   end
 
   defp decode_column_labels(column_labels) do
