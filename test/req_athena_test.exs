@@ -191,24 +191,40 @@ defmodule ReqAthenaTest do
     validations = %{
       "StartQueryExecution" => fn request ->
         if Req.Request.get_private(request, :athena_query_execution_id, nil) do
-          assert Jason.decode!(request.body) == %{
-                   "ClientRequestToken" => "74591A3EBE23508682D20337984FC399",
+          client_req_token =
+            case :erlang.system_info(:otp_release) do
+              ~c"27" -> "BB0174689AC2EA58B5C2CAB1B69DCF72"
+              _ -> "74591A3EBE23508682D20337984FC399"
+            end
+
+          decoded = Jason.decode!(request.body)
+
+          assert %{
+                   "ClientRequestToken" => ^client_req_token,
                    "QueryExecutionContext" => %{
                      "Database" => "my_awesome_database"
                    },
                    "QueryString" => "EXECUTE query_8CD6B60FAFA18EBFA8719A6EAC192624 USING 1",
                    "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
-                 }
+                 } = decoded
         else
-          assert Jason.decode!(request.body) == %{
-                   "ClientRequestToken" => "3F8FCA289E16CFEC152E6F8C2596DA6B",
+          client_req_token =
+            case :erlang.system_info(:otp_release) do
+              ~c"27" -> "F1C8E4D3CE5FFFDA8DC9568A0685BAC1"
+              _ -> "3F8FCA289E16CFEC152E6F8C2596DA6B"
+            end
+
+          decoded = Jason.decode!(request.body)
+
+          assert %{
+                   "ClientRequestToken" => ^client_req_token,
                    "QueryExecutionContext" => %{
                      "Database" => "my_awesome_database"
                    },
                    "QueryString" =>
                      "PREPARE query_8CD6B60FAFA18EBFA8719A6EAC192624 FROM select * from iris where id = ?",
                    "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
-                 }
+                 } = decoded
         end
       end
     }
@@ -406,12 +422,20 @@ defmodule ReqAthenaTest do
   test "executes a query with workgroup" do
     validations = %{
       "StartQueryExecution" => fn request ->
-        assert Jason.decode!(request.body) == %{
-                 "ClientRequestToken" => "D6C3709EDB68939EA3B176B2961177C9",
+        client_req_token =
+          case :erlang.system_info(:otp_release) do
+            ~c"27" -> "7757497C80E919A5B56F6F59F2DAA0F0"
+            _ -> "D6C3709EDB68939EA3B176B2961177C9"
+          end
+
+        decoded = Jason.decode!(request.body)
+
+        assert %{
+                 "ClientRequestToken" => ^client_req_token,
                  "QueryExecutionContext" => %{"Database" => "my_awesome_database"},
                  "QueryString" => "select * from iris",
                  "WorkGroup" => "default"
-               }
+               } = decoded
       end
     }
 
@@ -661,14 +685,22 @@ defmodule ReqAthenaTest do
         if fun = validations["StartQueryExecution"] do
           fun.(request)
         else
-          assert Jason.decode!(request.body) == %{
-                   "ClientRequestToken" => "279A8BD03538A2F33C1B13DF28FF1966",
+          client_req_token =
+            case :erlang.system_info(:otp_release) do
+              ~c"27" -> "4666A0FE3AC8B51C4785F1868BFD29C2"
+              _ -> "279A8BD03538A2F33C1B13DF28FF1966"
+            end
+
+          decoded = Jason.decode!(request.body)
+
+          assert %{
+                   "ClientRequestToken" => ^client_req_token,
                    "QueryExecutionContext" => %{
                      "Database" => "my_awesome_database"
                    },
                    "QueryString" => "select * from iris",
                    "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
-                 }
+                 } = decoded
         end
 
         original_data = %{QueryExecutionId: "an uuid"}
