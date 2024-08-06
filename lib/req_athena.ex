@@ -381,42 +381,29 @@ defmodule ReqAthena do
   @credential_keys ~w(access_key_id secret_access_key region token)a
 
   defp maybe_put_aws_credentials(request) do
-    Req.Request.merge_options(request, get_credentials(request.options))
-  end
+    case aws_credentials() do
+      :undefined ->
+        request
 
-  defp get_credentials(options) do
-    credentials_from_opts =
-      for {k, v} <- options,
-          v in @credential_keys and not is_empty(v),
-          do: {k, v}
+      aws_credentials ->
+        opts_credentials =
+          for {k, v} <- request.options,
+              v in @credential_keys and not is_empty(v),
+              do: {k, v}
 
-    if Code.ensure_loaded?(:aws_credentials) do
-      credentials =
-        for {k, v} <- get_credentials(),
-            k in @credential_keys and v != :undefined,
-            do: {k, v}
+        aws_credentials =
+          for {k, v} <- aws_credentials,
+              k in @credential_keys and v != :undefined,
+              do: {k, v}
 
-      Map.merge(credentials, credentials_from_opts)
-    else
-      credentials_from_opts
+        Req.Request.merge_options(request, Keyword.merge(aws_credentials, opts_credentials))
     end
   end
 
-  @compile {:no_warn_undefined, :aws_credentials}
-
-  defp get_credentials do
-    Application.put_env(:aws_credentials, :fail_if_unavailable, false)
-
-    case Application.ensure_all_started(:aws_credentials) do
-      {:ok, _} ->
-        case :aws_credentials.get_credentials() do
-          :undefined -> %{}
-          map -> map
-        end
-
-      _error ->
-        %{}
-    end
+  if Code.ensure_loaded?(:aws_credentials) do
+    defp aws_credentials, do: :aws_credentials.get_credentials()
+  else
+    defp aws_credentials, do: :undefined
   end
 
   defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()
