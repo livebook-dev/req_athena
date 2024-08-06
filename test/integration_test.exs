@@ -1,5 +1,5 @@
 defmodule IntegrationTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case
   @moduletag :integration
 
   @create_table """
@@ -349,10 +349,8 @@ defmodule IntegrationTest do
         end
       end
 
-      on_exit(fn ->
-        Application.stop(:aws_credentials)
-        Application.start(:aws_credentials)
-      end)
+      Application.stop(:aws_credentials)
+      Application.start(:aws_credentials)
 
       :ok
     end
