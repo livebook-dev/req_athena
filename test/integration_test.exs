@@ -333,7 +333,7 @@ defmodule IntegrationTest do
   end
 
   describe "with aws_credentials" do
-    @path Path.expand("./config/") <> "/"
+    @path Path.expand("./tmp/") <> "/"
 
     setup tags do
       if env = tags[:aws_credentials] do

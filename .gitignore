@@ -27,5 +27,4 @@ req_athena-*.tar
 
 # AWS INI files&credentials
 .env*
-/config/*credentials*
-/config/*config*
+/tmp
