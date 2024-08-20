@@ -226,8 +226,11 @@ defmodule ReqAthenaTest do
 
     results = %{
       "GetQueryResults" => fn request ->
+        query = Req.Request.get_private(request, :athena_query)
+        to_prepare? = ReqAthena.Query.to_prepare?(query)
+
         data =
-          if Req.Request.get_private(request, :athena_parameterized?) do
+          if to_prepare? do
             %{"ResultSet" => %{"Output" => ""}}
           else
             %{

@@ -38,7 +38,7 @@ defmodule ReqAthena do
 
     * `:database` - Required. The AWS Athena database name.
 
-    * `:output_location` - Conditional. The S3 url location to output AWS Athena query results.
+    * `:output_location` - Conditional. The S3 URL location to output AWS Athena query results.
 
     * `:workgroup` - Conditional. The AWS Athena workgroup.
 
@@ -126,11 +126,15 @@ defmodule ReqAthena do
     end
   end
 
-  defp put_request_body(request, {query, []}, cache_query) do
-    put_request_body(request, query, cache_query)
+  defp put_request_body(request, query, cache_query) when is_binary(query) do
+    put_request_body(request, %ReqAthena.Query{query: query}, cache_query)
   end
 
-  defp put_request_body(request, {query, _params}, cache_query) do
+  defp put_request_body(request, {query, []}, cache_query) do
+    put_request_body(request, %ReqAthena.Query{query: query}, cache_query)
+  end
+
+  defp put_request_body(request, {query, params}, cache_query) do
     hash =
       if cache_query do
         query |> :erlang.md5() |> Base.encode16()
@@ -138,16 +142,12 @@ defmodule ReqAthena do
         :os.system_time() |> to_string()
       end
 
-    statement_name = "query_" <> hash
+    query = %ReqAthena.Query{query: query, params: params, statement_name: "query_" <> hash}
 
-    request
-    |> put_request_body("PREPARE #{statement_name} FROM #{query}", cache_query)
-    |> Request.put_private(:athena_parameterized?, true)
-    |> Request.put_private(:athena_statement_name, statement_name)
+    put_request_body(request, query, cache_query)
   end
 
-  defp put_request_body(request, query, cache_query)
-       when is_binary(query) do
+  defp put_request_body(request, %ReqAthena.Query{} = query, cache_query) do
     output_config =
       case {request.options[:output_location], request.options[:workgroup]} do
         {output, workgroup} when is_empty(output) and is_empty(workgroup) ->
@@ -166,13 +166,14 @@ defmodule ReqAthena do
     body =
       Map.merge(output_config, %{
         QueryExecutionContext: %{Database: fetch_option!(request, :database)},
-        QueryString: query
+        QueryString: ReqAthena.Query.to_query_string(query)
       })
 
     client_request_token = generate_client_request_token(body, cache_query)
     body = Map.put(body, :ClientRequestToken, client_request_token)
 
     %{request | body: Jason.encode!(body)}
+    |> Request.put_private(:athena_query, query)
   end
 
   defp generate_client_request_token(parameters, cache_query) do
@@ -191,9 +192,9 @@ defmodule ReqAthena do
 
   defp handle_athena_result({request, %{status: 200} = response}) do
     action = Request.get_private(request, :athena_action)
-    parameterized? = Request.get_private(request, :athena_parameterized?, false)
+    query = Request.get_private(request, :athena_query)
 
-    case {action, parameterized?} do
+    case {action, ReqAthena.Query.to_prepare?(query)} do
       {"StartQueryExecution", _} ->
         get_query_state(request, response)
 
@@ -267,26 +268,26 @@ defmodule ReqAthena do
     end
   end
 
-  @athena_keys ~w(athena_action athena_parameterized? athena_wait_count)a
+  @athena_keys ~w(athena_action athena_query athena_wait_count)a
 
   defp execute_prepared_query(request) do
-    {_, params} = fetch_option!(request, :athena)
-    statement_name = Req.Request.get_private(request, :athena_statement_name)
-    athena = "EXECUTE #{statement_name} USING " <> Enum.map_join(params, ", ", &encode_value/1)
-    {_, private} = Map.split(request.private, @athena_keys)
+    {ours_private, theirs_private} = Map.split(request.private, @athena_keys)
+
+    %ReqAthena.Query{prepared: false} = query = ours_private.athena_query
+    prepared_query = %ReqAthena.Query{query | prepared: true}
 
     request = %{
       request
-      | private: private,
+      | private: theirs_private,
         current_request_steps: Keyword.keys(request.request_steps)
     }
 
-    Request.halt(request, Req.post!(request, athena: athena))
+    Request.halt(request, Req.post!(request, athena: prepared_query))
   end
 
   defp decode_result(request, response) do
     body = Jason.decode!(response.body)
-    statement_name = Request.get_private(request, :athena_statement_name)
+    query = Request.get_private(request, :athena_query)
     query_execution_id = Request.get_private(request, :athena_query_execution_id)
     output_location = Request.get_private(request, :athena_output_location)
 
@@ -301,7 +302,7 @@ defmodule ReqAthena do
           %ReqAthena.Result{
             query_execution_id: query_execution_id,
             output_location: output_location,
-            statement_name: statement_name,
+            statement_name: query.statement_name,
             rows: decode_rows(rows, columns_info),
             columns: decode_column_labels(column_labels),
             metadata: columns_info
@@ -311,7 +312,7 @@ defmodule ReqAthena do
           %ReqAthena.Result{
             query_execution_id: query_execution_id,
             output_location: output_location,
-            statement_name: statement_name
+            statement_name: query.statement_name
           }
 
         body ->
@@ -407,24 +408,6 @@ defmodule ReqAthena do
   end
 
   defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()
-
-  defp encode_value(value) when is_binary(value), do: "'#{value}'"
-  defp encode_value(%Date{} = value), do: to_string(value) |> encode_value()
-
-  defp encode_value(%DateTime{} = value) do
-    value
-    |> DateTime.to_naive()
-    |> encode_value()
-  end
-
-  defp encode_value(%NaiveDateTime{} = value) do
-    value
-    |> NaiveDateTime.truncate(:millisecond)
-    |> to_string()
-    |> encode_value()
-  end
-
-  defp encode_value(value), do: value
 
   defp decode_value(nil, _), do: nil
 
