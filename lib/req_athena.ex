@@ -2,8 +2,13 @@ defmodule ReqAthena do
   @moduledoc """
   `Req` plugin for [AWS Athena](https://docs.aws.amazon.com/athena/latest/APIReference/Welcome.html).
 
-  ReqAthena makes it easy to make Athena queries. Query results are decoded into the `ReqAthena.Result` struct.
-  The struct implements the `Table.Reader` protocol and thus can be efficiently traversed by rows or columns.
+  ReqAthena makes it easy to make Athena queries and save the results into S3 buckets.
+
+  By default, `ReqAthena` will save results using the Apache Parquet format, and return a
+  `Explorer.DataFrame` as a lazy frame pointing to all the partition files. These partitions
+  are sorted independently, but we cannot guarantee ordering as a whole.
+
+  See the limitations in the [`UNLOAD` command docs](https://docs.aws.amazon.com/athena/latest/ug/unload.html#unload-considerations-and-limitations).
   """
   require Logger
 
@@ -19,7 +24,10 @@ defmodule ReqAthena do
     athena
     output_location
     cache_query
+    no_explorer
   )a
+
+  @credential_keys ~w(access_key_id secret_access_key region token)a
 
   defguardp is_empty(value) when value in [nil, ""]
 
@@ -39,14 +47,22 @@ defmodule ReqAthena do
     * `:database` - Required. The AWS Athena database name.
 
     * `:output_location` - Conditional. The S3 URL location to output AWS Athena query results.
+      Results will be saved as Parquet and loaded with Explorer only if this option is given.
 
     * `:workgroup` - Conditional. The AWS Athena workgroup.
 
     * `:cache_query` - Optional. Forces a non-cached result from AWS Athena.
 
-    * `:athena` - Required. The query to execute. It can be a plain sql string or
+    * `:no_explorer` - Disable output as an Explorer dataframe. Defaults to `nil`, which
+      enables Explorer integration by default.
+
+    * `:athena` - Required. The query to execute. It can be a plain SQL string or
       a `{query, params}` tuple, where `query` can contain `?` placeholders and `params`
       is a list of corresponding values.
+
+      There is a limitation of Athena that requires the `:output_location` to be empty
+      for every query. So we append "results" to the `:output_location`, so the partition
+      files are saved there.
 
   Conditional fields must always be defined, and can be one of the fields or both.
 
@@ -163,6 +179,18 @@ defmodule ReqAthena do
           %{WorkGroup: workgroup, ResultConfiguration: %{OutputLocation: output}}
       end
 
+    query =
+      if not (!!request.options[:no_explorer]) and is_binary(request.options[:output_location]) do
+        ReqAthena.Query.with_unload(
+          query,
+          # We need to add this "subdirectory" because Athena expects the results directory
+          # to be empty.
+          to: Path.join(request.options[:output_location], "results")
+        )
+      else
+        query
+      end
+
     body =
       Map.merge(output_config, %{
         QueryExecutionContext: %{Database: fetch_option!(request, :database)},
@@ -205,11 +233,58 @@ defmodule ReqAthena do
         execute_prepared_query(request)
 
       {"GetQueryResults", _} ->
-        decode_result(request, response)
+        if ReqAthena.Query.is_select(query) and not is_nil(query.unload) do
+          build_explorer_lazy_frame(request, response)
+        else
+          decode_result(request, response)
+        end
     end
   end
 
   defp handle_athena_result(request_response), do: request_response
+
+  defp build_explorer_lazy_frame(request, response) do
+    body = Jason.decode!(response.body)
+
+    result =
+      if Map.has_key?(body, "ResultSet") do
+        manifest_csv_location =
+          Request.get_private(request, :athena_output_location) <> "-manifest.csv"
+
+        aws_credentials =
+          for key <- @credential_keys,
+              value = request.options[key],
+              not is_nil(value),
+              do: {key, value}
+
+        # This private field is only meant to be used in tests.
+        fetcher_and_builder =
+          Request.get_private(request, :athena_dataframe_builder, &fetch_and_build_dataframe/2)
+
+        fetcher_and_builder.(manifest_csv_location, aws_credentials)
+      else
+        body
+      end
+
+    Request.halt(request, %{response | body: result})
+  end
+
+  @doc false
+  def fetch_and_build_dataframe(manifest_csv_location, aws_credentials) do
+    # TODO: Should we handle errors here?
+    manifest_df =
+      Explorer.DataFrame.from_csv!(manifest_csv_location,
+        header: false,
+        config: aws_credentials
+      )
+
+    manifest_df[0]
+    |> Explorer.Series.to_list()
+    |> Enum.map(fn parquet_location ->
+      Explorer.DataFrame.from_parquet!(parquet_location, lazy: true, config: aws_credentials)
+    end)
+    |> Explorer.DataFrame.concat_rows()
+  end
 
   defp get_query_state(request, response) do
     response =
@@ -378,8 +453,6 @@ defmodule ReqAthena do
       []
     )
   end
-
-  @credential_keys ~w(access_key_id secret_access_key region token)a
 
   defp maybe_put_aws_credentials(request) do
     case aws_credentials() do

@@ -43,6 +43,7 @@ defmodule ReqAthena.MixProject do
     [
       {:req, "~> 0.5.0"},
       {:aws_signature, "~> 0.3.0"},
+      {:explorer, "~> 0.9.0"},
       {:aws_credentials, "~> 0.2", optional: true},
       {:table, "~> 0.1.1", optional: true},
       {:tzdata, "~> 1.1.1", only: :test},

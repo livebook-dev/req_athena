@@ -2,7 +2,7 @@ defmodule ReqAthenaTest do
   use ExUnit.Case, async: true
   @moduletag :capture_log
 
-  test "executes a query string" do
+  test "executes a query string returning a data frame" do
     opts = [
       access_key_id: "some key",
       secret_access_key: "dummy",
@@ -11,47 +11,53 @@ defmodule ReqAthenaTest do
       output_location: "s3://foo"
     ]
 
+    request_validations = %{
+      "StartQueryExecution" => fn request ->
+        decoded = Jason.decode!(request.body)
+
+        assert %{
+                 "ClientRequestToken" => client_req_token,
+                 "QueryExecutionContext" => %{
+                   "Database" => "my_awesome_database"
+                 },
+                 "QueryString" =>
+                   "UNLOAD (select * from iris)\nTO 's3://foo/results'\nWITH (compression = 'SNAPPY', format = 'PARQUET')",
+                 "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
+               } = decoded
+
+        assert is_binary(client_req_token)
+      end
+    }
+
+    me = self()
+
     assert response =
-             Req.new(adapter: fake_athena())
+             Req.new(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
+             |> Req.Request.put_private(:athena_dataframe_builder, fn manifest_location,
+                                                                      credentials ->
+               assert manifest_location == "s3://foo-manifest.csv"
+
+               assert Enum.sort(Keyword.take(opts, [:access_key_id, :secret_access_key, :region])) ==
+                        Enum.sort(credentials)
+
+               send(me, {:explorer_built, manifest_location})
+
+               Explorer.DataFrame.new(id: [1, 2], name: ["Ale", "Wojtek"])
+             end)
              |> ReqAthena.attach(opts)
              |> Req.post!(athena: "select * from iris")
 
     assert response.status == 200
 
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"], [2, "Wojtek"]],
-             statement_name: nil,
-             metadata: [
-               %{
-                 "CaseSensitive" => false,
-                 "CatalogName" => "hive",
-                 "Label" => "id",
-                 "Name" => "id",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 10,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "integer"
-               },
-               %{
-                 "CaseSensitive" => true,
-                 "CatalogName" => "hive",
-                 "Label" => "name",
-                 "Name" => "name",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 2_147_483_647,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "varchar"
-               }
-             ]
+    assert df = %Explorer.DataFrame{} = response.body
+
+    assert Explorer.DataFrame.to_columns(df, atom_keys: true) == %{
+             id: [1, 2],
+             name: ["Ale", "Wojtek"]
            }
+
+    assert_received {:explorer_built, _output_location}
   end
 
   test "parses a response with a datum object missing" do
@@ -60,6 +66,7 @@ defmodule ReqAthenaTest do
       secret_access_key: "dummy",
       region: "us-east-1",
       database: "my_awesome_database",
+      no_explorer: true,
       output_location: "s3://foo"
     ]
 
@@ -308,6 +315,7 @@ defmodule ReqAthenaTest do
       secret_access_key: "dummy",
       region: "us-east-1",
       database: "my_awesome_database",
+      no_explorer: true,
       output_location: "s3://foo"
     ]
 
@@ -375,46 +383,33 @@ defmodule ReqAthenaTest do
       output_location: "s3://foo"
     ]
 
-    assert response =
-             Req.new(adapter: fake_athena(validations))
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris")
+    me = self()
+
+    response =
+      Req.new(adapter: fake_athena(validations))
+      |> ReqAthena.attach(opts)
+      |> Req.Request.put_private(:athena_dataframe_builder, fn manifest_location, credentials ->
+        assert manifest_location == "s3://foo-manifest.csv"
+
+        assert Enum.sort(
+                 Keyword.take(opts, [:access_key_id, :secret_access_key, :region, :token])
+               ) ==
+                 Enum.sort(credentials)
+
+        send(me, :explorer_built)
+
+        Explorer.DataFrame.new(id: [1, 2], name: ["Ale", "Wojtek"])
+      end)
+      |> Req.post!(athena: "select * from iris")
 
     assert response.status == 200
 
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"], [2, "Wojtek"]],
-             statement_name: nil,
-             metadata: [
-               %{
-                 "CaseSensitive" => false,
-                 "CatalogName" => "hive",
-                 "Label" => "id",
-                 "Name" => "id",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 10,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "integer"
-               },
-               %{
-                 "CaseSensitive" => true,
-                 "CatalogName" => "hive",
-                 "Label" => "name",
-                 "Name" => "name",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 2_147_483_647,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "varchar"
-               }
-             ]
+    assert Explorer.DataFrame.to_columns(response.body, atom_keys: true) == %{
+             id: [1, 2],
+             name: ["Ale", "Wojtek"]
            }
+
+    assert_received :explorer_built
   end
 
   test "executes a query with workgroup" do

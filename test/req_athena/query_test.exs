@@ -69,5 +69,39 @@ defmodule ReqAthena.QueryTest do
       assert Query.to_query_string(query) ==
                "EXECUTE test_statement USING 420"
     end
+
+    test "unload attributes and a create command does not use the unload command" do
+      create = """
+      CREATE EXTERNAL TABLE IF NOT EXISTS planet (
+        id BIGINT,
+        type STRING,
+        tags MAP<STRING,STRING>,
+        lat DECIMAL(9,7),
+        lon DECIMAL(10,7),
+        nds ARRAY<STRUCT<REF:BIGINT>>,
+        members ARRAY<STRUCT<TYPE:STRING,REF:BIGINT,ROLE:STRING>>,
+        changeset BIGINT,
+        timestamp TIMESTAMP,
+        uid BIGINT,
+        user STRING,
+        version BIGINT,
+        visible BOOLEAN
+      )
+      STORED AS ORCFILE
+      LOCATION 's3://osm-pds/planet/';\
+      """
+
+      query = %Query{
+        query: create,
+        params: [420],
+        prepared: true,
+        statement_name: "test_statement"
+      }
+
+      query = Query.with_unload(query, to: "s3://my-bucket/my-dir")
+
+      assert Query.to_query_string(query) ==
+               "EXECUTE test_statement USING 420"
+    end
   end
 end

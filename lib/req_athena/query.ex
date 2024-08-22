@@ -55,10 +55,17 @@ defmodule ReqAthena.Query do
 
   defp encode_value(value), do: value
 
-  defp maybe_around_unload(%{query: query_string, unload: [_ | _] = opts})
+  def is_select(%{query: query_string})
+      when is_binary(query_string) do
+    query_string =~ ~r/^[\s]*select/i
+  end
+
+  def can_use_unload?(_), do: false
+
+  defp maybe_around_unload(%{query: query_string, unload: [_ | _] = opts} = query)
        when is_binary(query_string) do
     # UNLOAD works only with SELECT
-    if query_string =~ ~r/^[\s]*select/i do
+    if is_select(query) do
       {to, props} = Keyword.pop!(opts, :to)
 
       props =

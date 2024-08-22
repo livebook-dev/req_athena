@@ -53,31 +53,49 @@ defmodule IntegrationTest do
 
     assert query_response.status == 200
 
-    assert query_response.body.columns == [
-             "id",
-             "type",
-             "tags",
-             "members",
-             "timestamp",
-             "visible"
-           ]
+    assert %Explorer.DataFrame{} = ldf = query_response.body
+    assert Explorer.DataFrame.lazy?(ldf)
 
-    refute query_response.body.statement_name
-    assert is_binary(query_response.body.query_execution_id)
+    df = Explorer.DataFrame.collect(ldf)
 
-    assert query_response.body.output_location ==
-             "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv"
+    names = [
+      "id",
+      "type",
+      "tags",
+      "members",
+      "timestamp",
+      "visible"
+    ]
 
-    assert query_response.body.rows == [
-             [
-               470_454,
-               "relation",
-               "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
-               "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
-               ~N[2017-01-21 12:51:34.000],
-               true
-             ]
-           ]
+    values = [
+      470_454,
+      "relation",
+      [
+        %{
+          "key" => "source",
+          "value" => "©IGN 2010 dans le cadre de la cartographie réglementaire"
+        },
+        %{"key" => "site", "value" => "geodesic"},
+        %{
+          "key" => "url",
+          "value" =>
+            "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A"
+        },
+        %{"key" => "name", "value" => "Mérignac A"},
+        %{"key" => "network", "value" => "NTF-5"},
+        %{"key" => "ref", "value" => "17229A"},
+        %{"key" => "type", "value" => "site"}
+      ],
+      [
+        %{"ref" => 670_007_839, "role" => "", "type" => "node"},
+        %{"ref" => 670_007_840, "role" => "", "type" => "node"}
+      ],
+      ~N[2017-01-21 12:51:34.000000],
+      true
+    ]
+
+    assert Explorer.DataFrame.names(df) == names
+    assert Explorer.DataFrame.to_rows(df) == [Map.new(Enum.zip(names, values))]
   end
 
   test "returns the response from AWS Athena's API with parameterized query" do
@@ -86,6 +104,7 @@ defmodule IntegrationTest do
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
+      no_explorer: true,
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
     ]
 
@@ -121,6 +140,7 @@ defmodule IntegrationTest do
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
+      no_explorer: true,
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
     ]
 
@@ -265,6 +285,7 @@ defmodule IntegrationTest do
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
+      no_explorer: true,
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
     ]
 
@@ -301,6 +322,7 @@ defmodule IntegrationTest do
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
+      no_explorer: true,
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"),
       cache_query: false
     ]
