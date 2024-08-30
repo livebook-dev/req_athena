@@ -4,11 +4,8 @@ defmodule ReqAthena do
 
   ReqAthena makes it easy to make Athena queries and save the results into S3 buckets.
 
-  By default, `ReqAthena` will save results using the Apache Parquet format, and return a
-  `Explorer.DataFrame` as a lazy frame pointing to all the partition files. These partitions
-  are sorted independently, but we cannot guarantee ordering as a whole.
-
-  See the limitations in the [`UNLOAD` command docs](https://docs.aws.amazon.com/athena/latest/ug/unload.html#unload-considerations-and-limitations).
+  By default, `ReqAthena` will query results and use the default output format,
+  which is CSV. To change that, you can use the `:format` option documented bellow.
   """
   require Logger
 
@@ -24,7 +21,9 @@ defmodule ReqAthena do
     athena
     output_location
     cache_query
-    no_explorer
+    format
+    decode_body
+    output_compression
   )a
 
   @credential_keys ~w(access_key_id secret_access_key region token)a
@@ -53,16 +52,32 @@ defmodule ReqAthena do
 
     * `:cache_query` - Optional. Forces a non-cached result from AWS Athena.
 
-    * `:no_explorer` - Disable output as an Explorer dataframe. Defaults to `nil`, which
-      enables Explorer integration by default.
+    * `:format` - Optional. It changes the output format. By default this is
+      `:none`, which means that we return the decoded result from the Athena API.
+      The supported formats are: `:csv`, `:explorer,`, `:json` and `:textfile`.
+
+      For `:csv`, the contents of the CSV file are the output instead of the API return.
+      When `:json` is used, the contents of the JSON files are going to be the output.
+      Notice that the body is decoded by default and to prevent that, you need to use
+      the `:decode_body` option, so you get the "raw" data.
+      The `:explorer` format will perform the query unloading it to Parquet files, and
+      then will lazy load these parquet files into an Explorer dataframe.
+
+      There are some limitations when using the `:json` and `:explorer` format.
+      See more about it reading the [`UNLOAD` command docs](https://docs.aws.amazon.com/athena/latest/ug/unload.html#unload-considerations-and-limitations).
+
+    * `:output_compression` - Optional. Sets the Parquet compression format and level
+      for the output when using the Explorer output format. This can be a string, like `"gzip"`,
+      or a tuple with `{format, level}`, like: `{"ZSTD", 4}`. By default this is `nil`,
+      which means that for Parquet (the format that Explorer uses) this is going to be `"gzip"`.
 
     * `:athena` - Required. The query to execute. It can be a plain SQL string or
       a `{query, params}` tuple, where `query` can contain `?` placeholders and `params`
       is a list of corresponding values.
 
-      There is a limitation of Athena that requires the `:output_location` to be empty
-      for every query. So we append "results" to the `:output_location`, so the partition
-      files are saved there.
+      There is a limitation of Athena that requires the `:output_location` to be present
+      for every query that outputs to a format other than "CSV". So we append "results"
+      to the `:output_location` to make the partition files be saved there.
 
   Conditional fields must always be defined, and can be one of the fields or both.
 
@@ -179,15 +194,22 @@ defmodule ReqAthena do
           %{WorkGroup: workgroup, ResultConfiguration: %{OutputLocation: output}}
       end
 
+    output_format = Request.get_option(request, :format, :none)
+
     query =
-      if not (!!request.options[:no_explorer]) and is_binary(request.options[:output_location]) do
+      if output_format not in [:csv, :none] and is_binary(request.options[:output_location]) do
         ReqAthena.Query.with_unload(
           query,
           # We need to add this "subdirectory" because Athena expects the results directory
-          # to be empty.
+          # to be empty for the "UNLOAD" command.
           to: Path.join(request.options[:output_location], "results")
         )
       else
+        if output_format in [:parquet, :orc, :avro, :json, :textfile] do
+          raise ArgumentError,
+                ":output_location needs to be defined in order to use the #{inspect(output_format)} format"
+        end
+
         query
       end
 
@@ -200,8 +222,7 @@ defmodule ReqAthena do
     client_request_token = generate_client_request_token(body, cache_query)
     body = Map.put(body, :ClientRequestToken, client_request_token)
 
-    %{request | body: Jason.encode!(body)}
-    |> Request.put_private(:athena_query, query)
+    Request.put_private(%{request | body: Jason.encode!(body)}, :athena_query, query)
   end
 
   defp generate_client_request_token(parameters, cache_query) do
@@ -233,17 +254,43 @@ defmodule ReqAthena do
         execute_prepared_query(request)
 
       {"GetQueryResults", _} ->
-        if ReqAthena.Query.is_select(query) and not is_nil(query.unload) do
-          build_explorer_lazy_frame(request, response)
-        else
-          decode_result(request, response)
+        output_format = Request.get_option(request, :format, :none)
+
+        case output_format do
+          :none ->
+            if Request.get_option(request, :decode_body, true) do
+              Request.halt(request, %{response | body: Jason.decode!(response.body)})
+            else
+              Request.halt(request, response)
+            end
+
+          :csv ->
+            get_csv_result(request, response)
+
+          :json ->
+            get_json_result(request, response)
+
+          :explorer ->
+            get_explorer_lazy_frame(request, response)
+
+          other ->
+            raise ArgumentError,
+                  ":format - `#{inspect(other)}` is not valid. Only :none, :csv, :json or :explorer are accepted."
         end
     end
   end
 
   defp handle_athena_result(request_response), do: request_response
 
-  defp build_explorer_lazy_frame(request, response) do
+  defp get_csv_result(request, response) do
+    Request.halt(request, response)
+  end
+
+  defp get_json_result(request, response) do
+    Request.halt(request, response)
+  end
+
+  defp get_explorer_lazy_frame(request, response) do
     body = Jason.decode!(response.body)
 
     result =
@@ -339,7 +386,11 @@ defmodule ReqAthena do
         end
 
       _other_state ->
-        decode_result(request, response)
+        if Request.get_option(request, :decode_body, true) do
+          Request.halt(request, %{response | body: body})
+        else
+          Request.halt(request, response)
+        end
     end
   end
 
@@ -360,57 +411,57 @@ defmodule ReqAthena do
     Request.halt(request, Req.post!(request, athena: prepared_query))
   end
 
-  defp decode_result(request, response) do
-    body = Jason.decode!(response.body)
-    query = Request.get_private(request, :athena_query)
-    query_execution_id = Request.get_private(request, :athena_query_execution_id)
-    output_location = Request.get_private(request, :athena_output_location)
+  # defp decode_result(request, response) do
+  #   body = Jason.decode!(response.body)
+  #   query = Request.get_private(request, :athena_query)
+  #   query_execution_id = Request.get_private(request, :athena_query_execution_id)
+  #   output_location = Request.get_private(request, :athena_output_location)
 
-    result =
-      case body do
-        %{
-          "ResultSet" => %{
-            "ResultSetMetadata" => %{"ColumnInfo" => columns_info},
-            "Rows" => [%{"Data" => column_labels} | rows]
-          }
-        } ->
-          %ReqAthena.Result{
-            query_execution_id: query_execution_id,
-            output_location: output_location,
-            statement_name: query.statement_name,
-            rows: decode_rows(rows, columns_info),
-            columns: decode_column_labels(column_labels),
-            metadata: columns_info
-          }
+  #   result =
+  #     case body do
+  #       %{
+  #         "ResultSet" => %{
+  #           "ResultSetMetadata" => %{"ColumnInfo" => columns_info},
+  #           "Rows" => [%{"Data" => column_labels} | rows]
+  #         }
+  #       } ->
+  #         %ReqAthena.Result{
+  #           query_execution_id: query_execution_id,
+  #           output_location: output_location,
+  #           statement_name: query.statement_name,
+  #           rows: decode_rows(rows, columns_info),
+  #           columns: decode_column_labels(column_labels),
+  #           metadata: columns_info
+  #         }
 
-        %{"ResultSet" => _} ->
-          %ReqAthena.Result{
-            query_execution_id: query_execution_id,
-            output_location: output_location,
-            statement_name: query.statement_name
-          }
+  #       %{"ResultSet" => _} ->
+  #         %ReqAthena.Result{
+  #           query_execution_id: query_execution_id,
+  #           output_location: output_location,
+  #           statement_name: query.statement_name
+  #         }
 
-        body ->
-          body
-      end
+  #       body ->
+  #         body
+  #     end
 
-    Request.halt(request, %{response | body: result})
-  end
+  #   Request.halt(request, %{response | body: result})
+  # end
 
-  defp decode_column_labels(column_labels) do
-    Enum.map(column_labels, &Map.fetch!(&1, "VarCharValue"))
-  end
+  # defp decode_column_labels(column_labels) do
+  #   Enum.map(column_labels, &Map.fetch!(&1, "VarCharValue"))
+  # end
 
-  defp decode_rows(rows, columns_info) do
-    column_types = Enum.map(columns_info, &Map.take(&1, ["Type"]))
+  # defp decode_rows(rows, columns_info) do
+  #   column_types = Enum.map(columns_info, &Map.take(&1, ["Type"]))
 
-    Enum.map(rows, fn %{"Data" => datums} ->
-      Enum.zip_with([datums, column_types], fn [datum, column_type] ->
-        value = datum["VarCharValue"] || ""
-        decode_value(value, column_type)
-      end)
-    end)
-  end
+  #   Enum.map(rows, fn %{"Data" => datums} ->
+  #     Enum.zip_with([datums, column_types], fn [datum, column_type] ->
+  #       value = datum["VarCharValue"] || ""
+  #       decode_value(value, column_type)
+  #     end)
+  #   end)
+  # end
 
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
@@ -482,34 +533,34 @@ defmodule ReqAthena do
 
   defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()
 
-  defp decode_value(nil, _), do: nil
+  # defp decode_value(nil, _), do: nil
 
-  @integer_types ~w(bigint smallint integer)
+  # @integer_types ~w(bigint smallint integer)
 
-  defp decode_value(value, %{"Type" => type}) when type in @integer_types,
-    do: String.to_integer(value)
+  # defp decode_value(value, %{"Type" => type}) when type in @integer_types,
+  #   do: String.to_integer(value)
 
-  @float_types ~w(double float decimal)
+  # @float_types ~w(double float decimal)
 
-  defp decode_value(value, %{"Type" => type}) when type in @float_types,
-    do: String.to_float(value)
+  # defp decode_value(value, %{"Type" => type}) when type in @float_types,
+  #   do: String.to_float(value)
 
-  defp decode_value("true", %{"Type" => "boolean"}), do: true
-  defp decode_value("false", %{"Type" => "boolean"}), do: false
-  defp decode_value(value, %{"Type" => "date"}), do: Date.from_iso8601!(value)
+  # defp decode_value("true", %{"Type" => "boolean"}), do: true
+  # defp decode_value("false", %{"Type" => "boolean"}), do: false
+  # defp decode_value(value, %{"Type" => "date"}), do: Date.from_iso8601!(value)
 
-  defp decode_value(value, %{"Type" => "timestamp"}), do: NaiveDateTime.from_iso8601!(value)
+  # defp decode_value(value, %{"Type" => "timestamp"}), do: NaiveDateTime.from_iso8601!(value)
 
-  defp decode_value(value, %{"Type" => "timestamp with time zone"}) do
-    [d, t, tz] = String.split(value, " ", trim: true)
-    date = Date.from_iso8601!(d)
-    time = Time.from_iso8601!(t)
+  # defp decode_value(value, %{"Type" => "timestamp with time zone"}) do
+  #   [d, t, tz] = String.split(value, " ", trim: true)
+  #   date = Date.from_iso8601!(d)
+  #   time = Time.from_iso8601!(t)
 
-    DateTime.new!(date, time, tz)
-    |> DateTime.truncate(:millisecond)
-  end
+  #   DateTime.new!(date, time, tz)
+  #   |> DateTime.truncate(:millisecond)
+  # end
 
-  defp decode_value(value, _), do: value
+  # defp decode_value(value, _), do: value
 
   # TODO: Use Req.Request.get_option/3 when Req 0.4.0 is out.
   defp get_option(request, key, default) when is_atom(key) do

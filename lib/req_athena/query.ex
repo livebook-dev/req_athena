@@ -107,7 +107,7 @@ defmodule ReqAthena.Query do
       Keyword.validate!(opts,
         to: nil,
         format: "PARQUET",
-        compression: "SNAPPY",
+        compression: nil,
         compression_level: nil,
         field_delimiter: nil,
         partitioned_by: nil

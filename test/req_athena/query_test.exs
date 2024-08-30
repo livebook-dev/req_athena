@@ -39,8 +39,16 @@ defmodule ReqAthena.QueryTest do
       query = %Query{query: "SELECT name, id FROM users"}
       query = Query.with_unload(query, to: "s3://my-bucket/my-dir")
 
+      assert query.unload[:to] == "s3://my-bucket/my-dir"
+      # Defaults
+      assert query.unload[:format] == "PARQUET"
+      assert is_nil(query.unload[:compression])
+      assert is_nil(query.unload[:compression_level])
+      assert is_nil(query.unload[:field_delimiter])
+      assert is_nil(query.unload[:partitioned_by])
+
       assert Query.to_query_string(query) ==
-               "UNLOAD (SELECT name, id FROM users)\nTO 's3://my-bucket/my-dir'\nWITH (compression = 'SNAPPY', format = 'PARQUET')"
+               "UNLOAD (SELECT name, id FROM users)\nTO 's3://my-bucket/my-dir'\nWITH (format = 'PARQUET')"
     end
 
     test "unload attributes and a prepare statement does use unload command" do
@@ -53,7 +61,7 @@ defmodule ReqAthena.QueryTest do
       query = Query.with_unload(query, to: "s3://my-bucket/my-dir")
 
       assert Query.to_query_string(query) ==
-               "PREPARE test_statement FROM UNLOAD (SELECT name, id FROM users WHERE id > ?)\nTO 's3://my-bucket/my-dir'\nWITH (compression = 'SNAPPY', format = 'PARQUET')"
+               "PREPARE test_statement FROM UNLOAD (SELECT name, id FROM users WHERE id > ?)\nTO 's3://my-bucket/my-dir'\nWITH (format = 'PARQUET')"
     end
 
     test "unload attributes and an execute command does not use the unload command" do
