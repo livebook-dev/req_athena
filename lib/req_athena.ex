@@ -258,20 +258,23 @@ defmodule ReqAthena do
 
         case output_format do
           :none ->
-            if Request.get_option(request, :decode_body, true) do
-              Request.halt(request, %{response | body: Jason.decode!(response.body)})
-            else
-              Request.halt(request, response)
-            end
+            response =
+              if Request.get_option(request, :decode_body, true) do
+                %{response | body: Jason.decode!(response.body)}
+              else
+                response
+              end
+
+            Request.halt(request, response)
+
+          :explorer ->
+            get_explorer_result(request, response)
 
           :csv ->
             get_csv_result(request, response)
 
           :json ->
             get_json_result(request, response)
-
-          :explorer ->
-            get_explorer_result(request, response)
 
           other ->
             raise ArgumentError,
@@ -283,7 +286,24 @@ defmodule ReqAthena do
   defp handle_athena_result(request_response), do: request_response
 
   defp get_csv_result(request, response) do
-    Request.halt(request, response)
+    csv_location = Request.get_private(request, :athena_output_location)
+
+    decode_body = Req.Request.get_option(request, :decode_body, true)
+
+    result =
+      if decode_body do
+        aws_credentials =
+          for key <- @credential_keys,
+              value = request.options[key],
+              not is_nil(value),
+              do: {key, value}
+
+        get_from_s3(csv_location, aws_credentials)
+      else
+        csv_location
+      end
+
+    Request.halt(request, %{response | body: result})
   end
 
   defp get_json_result(request, response) do
