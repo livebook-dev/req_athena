@@ -198,14 +198,26 @@ defmodule ReqAthena do
 
     query =
       if output_format not in [:csv, :none] and is_binary(request.options[:output_location]) do
-        ReqAthena.Query.with_unload(
-          query,
+        format_str =
+          case output_format do
+            :explorer -> "PARQUET"
+            :json -> "JSON"
+            other -> raise ArgumentError, ":format - not supported #{inspect(other)}"
+          end
+
+        unload_opts = [
+          format: format_str,
           # We need to add this "subdirectory" because Athena expects the results directory
           # to be empty for the "UNLOAD" command.
           to: Path.join(request.options[:output_location], "results")
+        ]
+
+        ReqAthena.Query.with_unload(
+          query,
+          unload_opts
         )
       else
-        if output_format in [:parquet, :orc, :avro, :json, :textfile] do
+        if output_format in [:explorer, :json] do
           raise ArgumentError,
                 ":output_location needs to be defined in order to use the #{inspect(output_format)} format"
         end
