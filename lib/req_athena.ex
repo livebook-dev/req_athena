@@ -271,7 +271,7 @@ defmodule ReqAthena do
             get_json_result(request, response)
 
           :explorer ->
-            get_explorer_lazy_frame(request, response)
+            get_explorer_result(request, response)
 
           other ->
             raise ArgumentError,
@@ -290,7 +290,7 @@ defmodule ReqAthena do
     Request.halt(request, response)
   end
 
-  defp get_explorer_lazy_frame(request, response) do
+  defp get_explorer_result(request, response) do
     body = Jason.decode!(response.body)
 
     result =
@@ -306,9 +306,11 @@ defmodule ReqAthena do
 
         # This private field is only meant to be used in tests.
         fetcher_and_builder =
-          Request.get_private(request, :athena_dataframe_builder, &fetch_and_build_dataframe/2)
+          Request.get_private(request, :athena_dataframe_builder, &fetch_and_build_dataframe/3)
 
-        fetcher_and_builder.(manifest_csv_location, aws_credentials)
+        decode_body = Req.Request.get_option(request, :decode_body, true)
+
+        fetcher_and_builder.(manifest_csv_location, aws_credentials, decode_body)
       else
         body
       end
@@ -317,20 +319,30 @@ defmodule ReqAthena do
   end
 
   @doc false
-  def fetch_and_build_dataframe(manifest_csv_location, aws_credentials) do
+  def fetch_and_build_dataframe(manifest_csv_location, aws_credentials, true = _decode_body) do
     # TODO: Should we handle errors here?
-    manifest_df =
-      Explorer.DataFrame.from_csv!(manifest_csv_location,
-        header: false,
-        config: aws_credentials
-      )
-
-    manifest_df[0]
-    |> Explorer.Series.to_list()
+    manifest_csv_location
+    |> get_from_s3(aws_credentials)
+    |> String.trim()
+    |> String.split("\n")
     |> Enum.map(fn parquet_location ->
       Explorer.DataFrame.from_parquet!(parquet_location, lazy: true, config: aws_credentials)
     end)
     |> Explorer.DataFrame.concat_rows()
+  end
+
+  def fetch_and_build_dataframe(manifest_csv_location, aws_credentials, false = _decode_body) do
+    manifest_csv_location
+    |> get_from_s3(aws_credentials)
+    |> String.trim()
+    |> String.split("\n")
+  end
+
+  defp get_from_s3(location, aws_credentials) do
+    req = Req.new() |> ReqS3.attach(aws_sigv4: aws_credentials)
+
+    response = Req.get!(req, url: location)
+    response.body
   end
 
   defp get_query_state(request, response) do
@@ -411,58 +423,6 @@ defmodule ReqAthena do
     Request.halt(request, Req.post!(request, athena: prepared_query))
   end
 
-  # defp decode_result(request, response) do
-  #   body = Jason.decode!(response.body)
-  #   query = Request.get_private(request, :athena_query)
-  #   query_execution_id = Request.get_private(request, :athena_query_execution_id)
-  #   output_location = Request.get_private(request, :athena_output_location)
-
-  #   result =
-  #     case body do
-  #       %{
-  #         "ResultSet" => %{
-  #           "ResultSetMetadata" => %{"ColumnInfo" => columns_info},
-  #           "Rows" => [%{"Data" => column_labels} | rows]
-  #         }
-  #       } ->
-  #         %ReqAthena.Result{
-  #           query_execution_id: query_execution_id,
-  #           output_location: output_location,
-  #           statement_name: query.statement_name,
-  #           rows: decode_rows(rows, columns_info),
-  #           columns: decode_column_labels(column_labels),
-  #           metadata: columns_info
-  #         }
-
-  #       %{"ResultSet" => _} ->
-  #         %ReqAthena.Result{
-  #           query_execution_id: query_execution_id,
-  #           output_location: output_location,
-  #           statement_name: query.statement_name
-  #         }
-
-  #       body ->
-  #         body
-  #     end
-
-  #   Request.halt(request, %{response | body: result})
-  # end
-
-  # defp decode_column_labels(column_labels) do
-  #   Enum.map(column_labels, &Map.fetch!(&1, "VarCharValue"))
-  # end
-
-  # defp decode_rows(rows, columns_info) do
-  #   column_types = Enum.map(columns_info, &Map.take(&1, ["Type"]))
-
-  #   Enum.map(rows, fn %{"Data" => datums} ->
-  #     Enum.zip_with([datums, column_types], fn [datum, column_type] ->
-  #       value = datum["VarCharValue"] || ""
-  #       decode_value(value, column_type)
-  #     end)
-  #   end)
-  # end
-
   # TODO: Add step `put_aws_sigv4` to Req
   # See: https://github.com/wojtekmach/req/issues/62
   defp sign_request(request, action) when is_binary(action) do
@@ -532,35 +492,6 @@ defmodule ReqAthena do
   end
 
   defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()
-
-  # defp decode_value(nil, _), do: nil
-
-  # @integer_types ~w(bigint smallint integer)
-
-  # defp decode_value(value, %{"Type" => type}) when type in @integer_types,
-  #   do: String.to_integer(value)
-
-  # @float_types ~w(double float decimal)
-
-  # defp decode_value(value, %{"Type" => type}) when type in @float_types,
-  #   do: String.to_float(value)
-
-  # defp decode_value("true", %{"Type" => "boolean"}), do: true
-  # defp decode_value("false", %{"Type" => "boolean"}), do: false
-  # defp decode_value(value, %{"Type" => "date"}), do: Date.from_iso8601!(value)
-
-  # defp decode_value(value, %{"Type" => "timestamp"}), do: NaiveDateTime.from_iso8601!(value)
-
-  # defp decode_value(value, %{"Type" => "timestamp with time zone"}) do
-  #   [d, t, tz] = String.split(value, " ", trim: true)
-  #   date = Date.from_iso8601!(d)
-  #   time = Time.from_iso8601!(t)
-
-  #   DateTime.new!(date, time, tz)
-  #   |> DateTime.truncate(:millisecond)
-  # end
-
-  # defp decode_value(value, _), do: value
 
   # TODO: Use Req.Request.get_option/3 when Req 0.4.0 is out.
   defp get_option(request, key, default) when is_atom(key) do

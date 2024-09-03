@@ -315,34 +315,14 @@ defmodule ReqAthenaTest do
       output_location: "s3://foo"
     ]
 
-    # me = self()
-
     response =
       Req.new(adapter: fake_athena(validations))
       |> ReqAthena.attach(opts)
-      # |> Req.Request.put_private(:athena_dataframe_builder, fn manifest_location, credentials ->
-      #   assert manifest_location == "s3://foo-manifest.csv"
-
-      #   assert Enum.sort(
-      #            Keyword.take(opts, [:access_key_id, :secret_access_key, :region, :token])
-      #          ) ==
-      #            Enum.sort(credentials)
-
-      #   send(me, :explorer_built)
-
-      #   Explorer.DataFrame.new(id: [1, 2], name: ["Ale", "Wojtek"])
-      # end)
       |> Req.post!(athena: "select * from iris")
 
     assert response.status == 200
     assert is_map(response.body)
 
-    # assert Explorer.DataFrame.to_columns(response.body, atom_keys: true) == %{
-    #          id: [1, 2],
-    #          name: ["Ale", "Wojtek"]
-    #        }
-
-    # assert_received :explorer_built
     assert_received :token_validation
     assert_received :token_validation
     assert_received :token_validation
@@ -451,8 +431,11 @@ defmodule ReqAthenaTest do
              Req.new(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
              |> Req.Request.put_private(:athena_dataframe_builder, fn manifest_location,
-                                                                      credentials ->
+                                                                      credentials,
+                                                                      decode_body ->
                assert manifest_location == "s3://foo-manifest.csv"
+
+               assert decode_body
 
                assert Enum.sort(Keyword.take(opts, [:access_key_id, :secret_access_key, :region])) ==
                         Enum.sort(credentials)
@@ -472,6 +455,46 @@ defmodule ReqAthenaTest do
              id: [1, 2],
              name: ["Ale", "Wojtek"]
            }
+
+    assert_received {:explorer_built, _output_location}
+  end
+
+  test "executes a query string with :explorer format and :decode_body as false" do
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    me = self()
+
+    request_validations = %{
+      "StartQueryExecution" => &Function.identity/1
+    }
+
+    assert response =
+             Req.new(adapter: fake_athena(request_validations))
+             |> Req.Request.put_header("x-auth", "my awesome auth header")
+             |> Req.Request.put_private(:athena_dataframe_builder, fn manifest_location,
+                                                                      credentials,
+                                                                      decode_body ->
+               refute decode_body
+
+               assert Enum.sort(Keyword.take(opts, [:access_key_id, :secret_access_key, :region])) ==
+                        Enum.sort(credentials)
+
+               send(me, {:explorer_built, manifest_location})
+
+               ["s3://foo/results/first"]
+             end)
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris", format: :explorer, decode_body: false)
+
+    assert response.status == 200
+
+    assert response.body == ["s3://foo/results/first"]
 
     assert_received {:explorer_built, _output_location}
   end
