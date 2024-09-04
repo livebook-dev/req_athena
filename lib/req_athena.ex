@@ -304,11 +304,7 @@ defmodule ReqAthena do
 
     result =
       if decode_body do
-        aws_credentials =
-          for key <- @credential_keys,
-              value = request.options[key],
-              not is_nil(value),
-              do: {key, value}
+        aws_credentials = aws_credentials_from_request(request)
 
         get_from_s3(csv_location, aws_credentials)
       else
@@ -319,40 +315,61 @@ defmodule ReqAthena do
   end
 
   defp get_json_result(request, response) do
-    Request.halt(request, response)
+    manifest_csv_location =
+      Request.get_private(request, :athena_output_location) <> "-manifest.csv"
+
+    aws_credentials = aws_credentials_from_request(request)
+
+    decode_body = Req.Request.get_option(request, :decode_body, true)
+
+    results_locations =
+      manifest_csv_location
+      |> get_from_s3(aws_credentials)
+      |> String.trim()
+      |> String.split("\n")
+
+    # OPTIMIZE: use tasks to retrieve files.
+    results =
+      if decode_body do
+        Enum.flat_map(results_locations, fn location ->
+          contents = get_from_s3(location, aws_credentials)
+          for line <- String.split(contents, "\n"), line != "", do: Jason.decode!(line)
+        end)
+      else
+        results_locations
+      end
+
+    Request.halt(request, %{response | body: results})
   end
 
   defp get_explorer_result(request, response) do
-    body = Jason.decode!(response.body)
+    manifest_csv_location =
+      Request.get_private(request, :athena_output_location) <> "-manifest.csv"
 
-    result =
-      if Map.has_key?(body, "ResultSet") do
-        manifest_csv_location =
-          Request.get_private(request, :athena_output_location) <> "-manifest.csv"
+    aws_credentials = aws_credentials_from_request(request)
 
-        aws_credentials =
-          for key <- @credential_keys,
-              value = request.options[key],
-              not is_nil(value),
-              do: {key, value}
+    # This private field is only meant to be used in tests.
+    fetcher_and_builder =
+      Request.get_private(request, :athena_dataframe_builder, &fetch_and_build_dataframe/3)
 
-        # This private field is only meant to be used in tests.
-        fetcher_and_builder =
-          Request.get_private(request, :athena_dataframe_builder, &fetch_and_build_dataframe/3)
+    decode_body = Req.Request.get_option(request, :decode_body, true)
 
-        decode_body = Req.Request.get_option(request, :decode_body, true)
-
-        fetcher_and_builder.(manifest_csv_location, aws_credentials, decode_body)
-      else
-        body
-      end
+    result = fetcher_and_builder.(manifest_csv_location, aws_credentials, decode_body)
 
     Request.halt(request, %{response | body: result})
+  end
+
+  defp aws_credentials_from_request(request) do
+    for key <- @credential_keys,
+        value = request.options[key],
+        not is_nil(value),
+        do: {key, value}
   end
 
   @doc false
   def fetch_and_build_dataframe(manifest_csv_location, aws_credentials, true = _decode_body) do
     # TODO: Should we handle errors here?
+    # OPTIMIZE: use tasks for retrieving parquets.
     manifest_csv_location
     |> get_from_s3(aws_credentials)
     |> String.trim()
