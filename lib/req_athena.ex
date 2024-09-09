@@ -54,7 +54,7 @@ defmodule ReqAthena do
 
     * `:format` - Optional. It changes the output format. By default this is
       `:none`, which means that we return the decoded result from the Athena API.
-      The supported formats are: `:csv`, `:explorer,`, `:json` and `:textfile`.
+      The supported formats are: `:csv`, `:explorer,`, and `:json`.
 
       For `:csv`, the contents of the CSV file are the output instead of the API return.
       When `:json` is used, the contents of the JSON files are going to be the output.
