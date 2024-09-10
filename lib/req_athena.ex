@@ -300,13 +300,11 @@ defmodule ReqAthena do
   defp get_csv_result(request, response) do
     csv_location = Request.get_private(request, :athena_output_location)
 
-    decode_body = Req.Request.get_option(request, :decode_body, true)
-
     result =
-      if decode_body do
+      if Req.Request.get_option(request, :decode_body, true) do
         aws_credentials = aws_credentials_from_request(request)
-
-        get_from_s3(csv_location, aws_credentials)
+        req_s3 = ReqAthena.S3.new(aws_credentials)
+        ReqAthena.S3.get_body(req_s3, csv_location)
       else
         csv_location
       end
@@ -315,36 +313,30 @@ defmodule ReqAthena do
   end
 
   defp get_json_result(request, response) do
-    manifest_csv_location =
-      Request.get_private(request, :athena_output_location) <> "-manifest.csv"
+    output_location = Request.get_private(request, :athena_output_location)
 
     aws_credentials = aws_credentials_from_request(request)
+    req_s3 = ReqAthena.S3.new(aws_credentials)
 
-    decode_body = Req.Request.get_option(request, :decode_body, true)
+    locations = ReqAthena.S3.get_locations(req_s3, output_location)
 
-    results_locations =
-      manifest_csv_location
-      |> get_from_s3(aws_credentials)
-      |> String.trim()
-      |> String.split("\n")
-
-    # OPTIMIZE: use tasks to retrieve files.
+    # OPTIMIZE: use tasks to retrieve locations.
     results =
-      if decode_body do
-        Enum.flat_map(results_locations, fn location ->
-          contents = get_from_s3(location, aws_credentials)
+      if Req.Request.get_option(request, :decode_body, true) do
+        Enum.flat_map(locations, fn location ->
+          contents = ReqAthena.S3.get_body(req_s3, location)
+
           for line <- String.split(contents, "\n"), line != "", do: Jason.decode!(line)
         end)
       else
-        results_locations
+        locations
       end
 
     Request.halt(request, %{response | body: results})
   end
 
   defp get_explorer_result(request, response) do
-    manifest_csv_location =
-      Request.get_private(request, :athena_output_location) <> "-manifest.csv"
+    output_location = Request.get_private(request, :athena_output_location)
 
     aws_credentials = aws_credentials_from_request(request)
 
@@ -354,7 +346,7 @@ defmodule ReqAthena do
 
     decode_body = Req.Request.get_option(request, :decode_body, true)
 
-    result = fetcher_and_builder.(manifest_csv_location, aws_credentials, decode_body)
+    result = fetcher_and_builder.(output_location, aws_credentials, decode_body)
 
     Request.halt(request, %{response | body: result})
   end
@@ -367,31 +359,19 @@ defmodule ReqAthena do
   end
 
   @doc false
-  def fetch_and_build_dataframe(manifest_csv_location, aws_credentials, true = _decode_body) do
-    # TODO: Should we handle errors here?
-    # OPTIMIZE: use tasks for retrieving parquets.
-    manifest_csv_location
-    |> get_from_s3(aws_credentials)
-    |> String.trim()
-    |> String.split("\n")
-    |> Enum.map(fn parquet_location ->
-      Explorer.DataFrame.from_parquet!(parquet_location, lazy: true, config: aws_credentials)
-    end)
-    |> Explorer.DataFrame.concat_rows()
-  end
+  def fetch_and_build_dataframe(output_location, aws_credentials, decode_body) do
+    req_s3 = ReqAthena.S3.new(aws_credentials)
+    locations = ReqAthena.S3.get_locations(req_s3, output_location)
 
-  def fetch_and_build_dataframe(manifest_csv_location, aws_credentials, false = _decode_body) do
-    manifest_csv_location
-    |> get_from_s3(aws_credentials)
-    |> String.trim()
-    |> String.split("\n")
-  end
-
-  defp get_from_s3(location, aws_credentials) do
-    req = Req.new() |> ReqS3.attach(aws_sigv4: aws_credentials)
-
-    response = Req.get!(req, url: location)
-    response.body
+    if decode_body do
+      locations
+      |> Enum.map(fn parquet_location ->
+        Explorer.DataFrame.from_parquet!(parquet_location, lazy: true, config: aws_credentials)
+      end)
+      |> Explorer.DataFrame.concat_rows()
+    else
+      locations
+    end
   end
 
   defp get_query_state(request, response) do

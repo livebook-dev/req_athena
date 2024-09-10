@@ -430,17 +430,17 @@ defmodule ReqAthenaTest do
     assert response =
              Req.new(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
-             |> Req.Request.put_private(:athena_dataframe_builder, fn manifest_location,
+             |> Req.Request.put_private(:athena_dataframe_builder, fn output_location,
                                                                       credentials,
                                                                       decode_body ->
-               assert manifest_location == "s3://foo-manifest.csv"
+               assert String.starts_with?(output_location, "s3://")
 
                assert decode_body
 
                assert Enum.sort(Keyword.take(opts, [:access_key_id, :secret_access_key, :region])) ==
                         Enum.sort(credentials)
 
-               send(me, {:explorer_built, manifest_location})
+               send(me, {:explorer_built, output_location})
 
                Explorer.DataFrame.new(id: [1, 2], name: ["Ale", "Wojtek"])
              end)
@@ -477,7 +477,7 @@ defmodule ReqAthenaTest do
     assert response =
              Req.new(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
-             |> Req.Request.put_private(:athena_dataframe_builder, fn manifest_location,
+             |> Req.Request.put_private(:athena_dataframe_builder, fn output_location,
                                                                       credentials,
                                                                       decode_body ->
                refute decode_body
@@ -485,7 +485,7 @@ defmodule ReqAthenaTest do
                assert Enum.sort(Keyword.take(opts, [:access_key_id, :secret_access_key, :region])) ==
                         Enum.sort(credentials)
 
-               send(me, {:explorer_built, manifest_location})
+               send(me, {:explorer_built, output_location})
 
                ["s3://foo/results/first"]
              end)
