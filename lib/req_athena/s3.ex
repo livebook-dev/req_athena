@@ -1,4 +1,5 @@
 defmodule ReqAthena.S3 do
+  @moduledoc false
   def new(aws_credentials, options \\ []) do
     options |> Req.new() |> ReqS3.attach(aws_sigv4: aws_credentials)
   end
