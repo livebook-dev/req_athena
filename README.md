@@ -49,45 +49,47 @@ LOCATION 's3://osm-pds/planet/';
 """
 
 Req.post!(req, athena: query).body
-#=>
-# %ReqAthena.Result{
-#   columns: [],
-#   output_location: "s3://my-bucket/a034610b-daaf-4c8d-aa61-d1a706231062.txt",
-#   query_execution_id: "a034610b-daaf-4c8d-aa61-d1a706231062",
-#   rows: [],
-#   statement_name: nil
+# =>
+# %{
+#   "Output" => "",
+#   "ResultSet" => %{
+#     "ColumnInfos" => [],
+#     "ResultRows" => [],
+#     "ResultSetMetadata" => %{"ColumnInfo" => []},
+#     "Rows" => []
+#   }
 # }
 
 # With plain string query
 query = "SELECT id, type, tags, members, timestamp, visible FROM planet WHERE id = 470454 and type = 'relation'"
 
-Req.post!(req, athena: query).body
-#=>
-# %ReqAthena.Result{
-#   columns: ["id", "type", "tags", "members", "timestamp", "visible"],
-#   output_location: "s3://my-bucket/c594d5df-9879-4bf7-8796-780e0b87a673.csv",
-#   query_execution_id: "c594d5df-9879-4bf7-8796-780e0b87a673",
-#   rows: [
-#     [470454, "relation",
-#      "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
-#      "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
-#      ~N[2017-01-21 12:51:34.000], true]
+Req.post!(req, athena: query, format: :json).body
+# =>
+# %{
+#   "id" => 470454,
+#   "members" => [
+#     %{"ref" => 670007839, "role" => "", "type" => "node"},
+#     %{"ref" => 670007840, "role" => "", "type" => "node"}
 #   ],
-#   statement_name: nil
+#   "tags" => %{
+#     "name" => "Mérignac A",
+#     "network" => "NTF-5",
+#     "ref" => "17229A",
+#     "site" => "geodesic",
+#     "source" => "©IGN 2010 dans le cadre de la cartographie réglementaire",
+#     "type" => "site",
+#     "url" => "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A"
+#   },
+#   "timestamp" => "2017-01-21 12:51:34",
+#   "type" => "relation",
+#   "visible" => true
 # }
 
 # With parameterized query
 query = "SELECT id, type FROM planet WHERE id = ? and type = ?"
 
 Req.post!(req, athena: {query, [239_970_142, "node"]}).body
-#=>
-# %ReqAthena.Result{
-#   columns: ["id", "type"],
-#   output_location: "s3://my-bucket/dda41d66-1eea-4588-850a-945c9def9163.csv",
-#   query_execution_id: "dda41d66-1eea-4588-850a-945c9def9163",
-#   rows: [[239970142, "node"]],
-#   statement_name: "query_C71EF77B8B7B92D9846C6D7E70136448"
-# }
+#=> [%{"id" => 239970142, "type" => "node"}]
 ```
 
 ## License
