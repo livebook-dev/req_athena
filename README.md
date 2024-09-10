@@ -65,25 +65,27 @@ query = "SELECT id, type, tags, members, timestamp, visible FROM planet WHERE id
 
 Req.post!(req, athena: query, format: :json).body
 # =>
-# %{
-#   "id" => 470454,
-#   "members" => [
-#     %{"ref" => 670007839, "role" => "", "type" => "node"},
-#     %{"ref" => 670007840, "role" => "", "type" => "node"}
-#   ],
-#   "tags" => %{
-#     "name" => "Mérignac A",
-#     "network" => "NTF-5",
-#     "ref" => "17229A",
-#     "site" => "geodesic",
-#     "source" => "©IGN 2010 dans le cadre de la cartographie réglementaire",
-#     "type" => "site",
-#     "url" => "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A"
-#   },
-#   "timestamp" => "2017-01-21 12:51:34",
-#   "type" => "relation",
-#   "visible" => true
-# }
+# [
+#  %{
+#    "id" => 470454,
+#    "members" => [
+#      %{"ref" => 670007839, "role" => "", "type" => "node"},
+#      %{"ref" => 670007840, "role" => "", "type" => "node"}
+#    ],
+#    "tags" => %{
+#      "name" => "Mérignac A",
+#      "network" => "NTF-5",
+#      "ref" => "17229A",
+#      "site" => "geodesic",
+#      "source" => "©IGN 2010 dans le cadre de la cartographie réglementaire",
+#      "type" => "site",
+#      "url" => "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A"
+#    },
+#    "timestamp" => "2017-01-21 12:51:34",
+#    "type" => "relation",
+#    "visible" => true
+#  }
+# ]
 
 # With parameterized query
 query = "SELECT id, type FROM planet WHERE id = ? and type = ?"
