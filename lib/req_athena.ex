@@ -415,7 +415,7 @@ defmodule ReqAthena do
         count = Request.get_private(request, :athena_wait_count, 1)
 
         if count >= 3 do
-          Logger.info("ReqAthena: query is in QUEUED state, will retry in 1000ms")
+          Logger.info("ReqAthena: query is in QUEUED state, will retry in #{@wait_delay}ms")
         end
 
         request = Request.put_private(request, :athena_wait_count, count + 1)
@@ -446,7 +446,9 @@ defmodule ReqAthena do
           Request.halt(request, %{response | body: body})
         end
 
-      _other_state ->
+      other_state ->
+        Logger.warning("ReqAthena: query returned an unknown state -> #{other_state}")
+
         if Request.get_option(request, :decode_body, true) do
           Request.halt(request, %{response | body: body})
         else
