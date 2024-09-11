@@ -135,8 +135,10 @@ defmodule ReqAthenaTest do
     }
 
     assert response =
-             Req.new(adapter: fake_athena(request_validations))
-             |> Req.Request.put_header("x-auth", "my awesome auth header")
+             Req.new(
+               adapter: fake_athena(request_validations),
+               headers: [x_auth: "my awesome auth header"]
+             )
              |> ReqAthena.attach(opts)
              |> Req.post!(athena: "select * from iris", decode_body: false)
 
