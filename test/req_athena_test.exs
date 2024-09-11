@@ -433,7 +433,7 @@ defmodule ReqAthenaTest do
              |> Req.Request.put_private(:athena_dataframe_builder, fn output_location,
                                                                       credentials,
                                                                       decode_body ->
-               assert String.starts_with?(output_location, "s3://")
+               assert "s3://" <> _ = output_location
 
                assert decode_body
 

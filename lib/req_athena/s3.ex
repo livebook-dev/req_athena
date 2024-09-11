@@ -14,7 +14,7 @@ defmodule ReqAthena.S3 do
   end
 
   def get_body(req_s3, location) do
-    response = Req.get!(req_s3, url: location)
+    %{status: 200} = response = Req.get!(req_s3, url: location)
 
     response.body
   end

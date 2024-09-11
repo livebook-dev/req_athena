@@ -45,23 +45,26 @@ defmodule ReqAthena do
 
     * `:database` - Required. The AWS Athena database name.
 
-    * `:output_location` - Conditional. The S3 URL location to output AWS Athena query results.
+    * `:output_location` - Optional. The S3 URL location to output AWS Athena query results.
       Results will be saved as Parquet and loaded with Explorer only if this option is given.
 
     * `:workgroup` - Conditional. The AWS Athena workgroup.
 
     * `:cache_query` - Optional. Forces a non-cached result from AWS Athena.
 
-    * `:format` - Optional. It changes the output format. By default this is
-      `:none`, which means that we return the decoded result from the Athena API.
-      The supported formats are: `:csv`, `:explorer,`, and `:json`.
+    * `:format` - Optional. The output format. Can be one of:
 
-      For `:csv`, the contents of the CSV file are the output instead of the API return.
-      When `:json` is used, the contents of the JSON files are going to be the output.
-      Notice that the body is decoded by default and to prevent that, you need to use
-      the `:decode_body` option, so you get the "raw" data.
-      The `:explorer` format will perform the query unloading it to Parquet files, and
-      then will lazy load these parquet files into an Explorer dataframe.
+        * `:none` (default) - return decoded API response from Athena.
+        
+        * `:csv` - return contents of the CSV file.
+        
+        * `:json` - return contents of the JSON file.
+        
+          Note: Req by default automatically decodes JSON response body ([`decode_body`](Req.Steps.decode_body1/) step)
+          and to prevent it from doing so, set `decode_body: false`.
+          
+        * `:explorer` - return contents in parquet format, lazy loaded into Explorer data frame.
+
 
       There are some limitations when using the `:json` and `:explorer` format.
       First, you need to install Explorer in order to use the `:explorer` format.
