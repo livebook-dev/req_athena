@@ -2,7 +2,7 @@ defmodule ReqAthenaTest do
   use ExUnit.Case, async: true
   @moduletag :capture_log
 
-  test "executes a query string" do
+  test "executes a query string returning the API result as it is" do
     opts = [
       access_key_id: "some key",
       secret_access_key: "dummy",
@@ -11,50 +11,104 @@ defmodule ReqAthenaTest do
       output_location: "s3://foo"
     ]
 
+    request_validations = %{
+      "StartQueryExecution" => fn request ->
+        decoded = Jason.decode!(request.body)
+
+        assert %{
+                 "ClientRequestToken" => client_req_token,
+                 "QueryExecutionContext" => %{
+                   "Database" => "my_awesome_database"
+                 },
+                 "QueryString" => "select * from iris",
+                 "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
+               } = decoded
+
+        assert is_binary(client_req_token)
+      end
+    }
+
     assert response =
-             Req.new(adapter: fake_athena())
+             Req.new(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
              |> ReqAthena.attach(opts)
              |> Req.post!(athena: "select * from iris")
 
     assert response.status == 200
 
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"], [2, "Wojtek"]],
-             statement_name: nil,
-             metadata: [
-               %{
-                 "CaseSensitive" => false,
-                 "CatalogName" => "hive",
-                 "Label" => "id",
-                 "Name" => "id",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 10,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "integer"
+    assert response.body ==
+             %{
+               "ResultSet" => %{
+                 "ColumnInfos" => [
+                   %{
+                     "CaseSensitive" => false,
+                     "CatalogName" => "hive",
+                     "Label" => "id",
+                     "Name" => "id",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 10,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "integer"
+                   },
+                   %{
+                     "CaseSensitive" => true,
+                     "CatalogName" => "hive",
+                     "Label" => "name",
+                     "Name" => "name",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 2_147_483_647,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "varchar"
+                   }
+                 ],
+                 "ResultRows" => [
+                   %{"Data" => ["id", "name"]},
+                   %{"Data" => ["1", "Ale"]},
+                   %{"Data" => ["2", "Wojtek"]}
+                 ],
+                 "ResultSetMetadata" => %{
+                   "ColumnInfo" => [
+                     %{
+                       "CaseSensitive" => false,
+                       "CatalogName" => "hive",
+                       "Label" => "id",
+                       "Name" => "id",
+                       "Nullable" => "UNKNOWN",
+                       "Precision" => 10,
+                       "Scale" => 0,
+                       "SchemaName" => "",
+                       "TableName" => "",
+                       "Type" => "integer"
+                     },
+                     %{
+                       "CaseSensitive" => true,
+                       "CatalogName" => "hive",
+                       "Label" => "name",
+                       "Name" => "name",
+                       "Nullable" => "UNKNOWN",
+                       "Precision" => 2_147_483_647,
+                       "Scale" => 0,
+                       "SchemaName" => "",
+                       "TableName" => "",
+                       "Type" => "varchar"
+                     }
+                   ]
+                 },
+                 "Rows" => [
+                   %{"Data" => [%{"VarCharValue" => "id"}, %{"VarCharValue" => "name"}]},
+                   %{"Data" => [%{"VarCharValue" => "1"}, %{"VarCharValue" => "Ale"}]},
+                   %{"Data" => [%{"VarCharValue" => "2"}, %{"VarCharValue" => "Wojtek"}]}
+                 ]
                },
-               %{
-                 "CaseSensitive" => true,
-                 "CatalogName" => "hive",
-                 "Label" => "name",
-                 "Name" => "name",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 2_147_483_647,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "varchar"
-               }
-             ]
-           }
+               "UpdateCount" => 0
+             }
   end
 
-  test "parses a response with a datum object missing" do
+  test "executes a query string returning the API result without decoding" do
     opts = [
       access_key_id: "some key",
       secret_access_key: "dummy",
@@ -63,123 +117,35 @@ defmodule ReqAthenaTest do
       output_location: "s3://foo"
     ]
 
-    results = %{
-      "GetQueryResults" => fn request ->
-        data = %{
-          "ResultSet" => %{
-            "ColumnInfos" => [
-              %{
-                "CaseSensitive" => false,
-                "CatalogName" => "hive",
-                "Label" => "id",
-                "Name" => "id",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 10,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "integer"
-              },
-              %{
-                "CaseSensitive" => true,
-                "CatalogName" => "hive",
-                "Label" => "name",
-                "Name" => "name",
-                "Nullable" => "UNKNOWN",
-                "Precision" => 2_147_483_647,
-                "Scale" => 0,
-                "SchemaName" => "",
-                "TableName" => "",
-                "Type" => "varchar"
-              }
-            ],
-            "ResultRows" => [
-              %{"Data" => ["id", "name"]},
-              %{"Data" => ["1", "Ale"]},
-              %{"Data" => ["2", "Wojtek"]}
-            ],
-            "ResultSetMetadata" => %{
-              "ColumnInfo" => [
-                %{
-                  "CaseSensitive" => false,
-                  "CatalogName" => "hive",
-                  "Label" => "id",
-                  "Name" => "id",
-                  "Nullable" => "UNKNOWN",
-                  "Precision" => 10,
-                  "Scale" => 0,
-                  "SchemaName" => "",
-                  "TableName" => "",
-                  "Type" => "integer"
-                },
-                %{
-                  "CaseSensitive" => true,
-                  "CatalogName" => "hive",
-                  "Label" => "name",
-                  "Name" => "name",
-                  "Nullable" => "UNKNOWN",
-                  "Precision" => 2_147_483_647,
-                  "Scale" => 0,
-                  "SchemaName" => "",
-                  "TableName" => "",
-                  "Type" => "varchar"
-                }
-              ]
-            },
-            "Rows" => [
-              %{"Data" => [%{"VarCharValue" => "id"}, %{"VarCharValue" => "name"}]},
-              %{"Data" => [%{"VarCharValue" => "1"}, %{"VarCharValue" => "Ale"}]},
-              %{"Data" => [%{"VarCharValue" => "2"}, %{}]}
-            ]
-          },
-          "UpdateCount" => 0
-        }
+    request_validations = %{
+      "StartQueryExecution" => fn request ->
+        decoded = Jason.decode!(request.body)
 
-        {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
+        assert %{
+                 "ClientRequestToken" => client_req_token,
+                 "QueryExecutionContext" => %{
+                   "Database" => "my_awesome_database"
+                 },
+                 "QueryString" => "select * from iris",
+                 "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
+               } = decoded
+
+        assert is_binary(client_req_token)
       end
     }
 
-    response =
-      Req.new(adapter: fake_athena(%{}, results))
-      |> Req.Request.put_header("x-auth", "my awesome auth header")
-      |> ReqAthena.attach(opts)
-      |> Req.post!(athena: "select * from iris")
+    assert response =
+             Req.new(
+               adapter: fake_athena(request_validations),
+               headers: [x_auth: "my awesome auth header"]
+             )
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris", decode_body: false)
 
     assert response.status == 200
 
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"], [2, ""]],
-             statement_name: nil,
-             metadata: [
-               %{
-                 "CaseSensitive" => false,
-                 "CatalogName" => "hive",
-                 "Label" => "id",
-                 "Name" => "id",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 10,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "integer"
-               },
-               %{
-                 "CaseSensitive" => true,
-                 "CatalogName" => "hive",
-                 "Label" => "name",
-                 "Name" => "name",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 2_147_483_647,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "varchar"
-               }
-             ]
-           }
+    assert response.body ==
+             ~s|{"ResultSet":{"ColumnInfos":[{"CaseSensitive":false,"CatalogName":"hive","Label":"id","Name":"id","Nullable":"UNKNOWN","Precision":10,"Scale":0,"SchemaName":"","TableName":"","Type":"integer"},{"CaseSensitive":true,"CatalogName":"hive","Label":"name","Name":"name","Nullable":"UNKNOWN","Precision":2147483647,"Scale":0,"SchemaName":"","TableName":"","Type":"varchar"}],"ResultRows":[{"Data":["id","name"]},{"Data":["1","Ale"]},{"Data":["2","Wojtek"]}],"ResultSetMetadata":{"ColumnInfo":[{"CaseSensitive":false,"CatalogName":"hive","Label":"id","Name":"id","Nullable":"UNKNOWN","Precision":10,"Scale":0,"SchemaName":"","TableName":"","Type":"integer"},{"CaseSensitive":true,"CatalogName":"hive","Label":"name","Name":"name","Nullable":"UNKNOWN","Precision":2147483647,"Scale":0,"SchemaName":"","TableName":"","Type":"varchar"}]},"Rows":[{"Data":[{"VarCharValue":"id"},{"VarCharValue":"name"}]},{"Data":[{"VarCharValue":"1"},{"VarCharValue":"Ale"}]},{"Data":[{"VarCharValue":"2"},{"VarCharValue":"Wojtek"}]}]},"UpdateCount":0}|
   end
 
   test "executes a parameterized query" do
@@ -224,76 +190,82 @@ defmodule ReqAthenaTest do
       end
     }
 
+    prepared_result =
+      %{
+        "ResultSet" => %{
+          "ColumnInfos" => [
+            %{
+              "CaseSensitive" => false,
+              "CatalogName" => "hive",
+              "Label" => "id",
+              "Name" => "id",
+              "Nullable" => "UNKNOWN",
+              "Precision" => 10,
+              "Scale" => 0,
+              "SchemaName" => "",
+              "TableName" => "",
+              "Type" => "integer"
+            },
+            %{
+              "CaseSensitive" => true,
+              "CatalogName" => "hive",
+              "Label" => "name",
+              "Name" => "name",
+              "Nullable" => "UNKNOWN",
+              "Precision" => 2_147_483_647,
+              "Scale" => 0,
+              "SchemaName" => "",
+              "TableName" => "",
+              "Type" => "varchar"
+            }
+          ],
+          "ResultRows" => [%{"Data" => ["id", "name"]}, %{"Data" => ["1", "Ale"]}],
+          "ResultSetMetadata" => %{
+            "ColumnInfo" => [
+              %{
+                "CaseSensitive" => false,
+                "CatalogName" => "hive",
+                "Label" => "id",
+                "Name" => "id",
+                "Nullable" => "UNKNOWN",
+                "Precision" => 10,
+                "Scale" => 0,
+                "SchemaName" => "",
+                "TableName" => "",
+                "Type" => "integer"
+              },
+              %{
+                "CaseSensitive" => true,
+                "CatalogName" => "hive",
+                "Label" => "name",
+                "Name" => "name",
+                "Nullable" => "UNKNOWN",
+                "Precision" => 2_147_483_647,
+                "Scale" => 0,
+                "SchemaName" => "",
+                "TableName" => "",
+                "Type" => "varchar"
+              }
+            ]
+          },
+          "Rows" => [
+            %{"Data" => [%{"VarCharValue" => "id"}, %{"VarCharValue" => "name"}]},
+            %{"Data" => [%{"VarCharValue" => "1"}, %{"VarCharValue" => "Ale"}]}
+          ]
+        },
+        "UpdateCount" => 0
+      }
+
     results = %{
       "GetQueryResults" => fn request ->
+        query = Req.Request.get_private(request, :athena_query)
+        to_prepare? = ReqAthena.Query.to_prepare?(query)
+
         data =
-          if Req.Request.get_private(request, :athena_parameterized?) do
+          if to_prepare? do
             %{"ResultSet" => %{"Output" => ""}}
           else
-            %{
-              "ResultSet" => %{
-                "ColumnInfos" => [
-                  %{
-                    "CaseSensitive" => false,
-                    "CatalogName" => "hive",
-                    "Label" => "id",
-                    "Name" => "id",
-                    "Nullable" => "UNKNOWN",
-                    "Precision" => 10,
-                    "Scale" => 0,
-                    "SchemaName" => "",
-                    "TableName" => "",
-                    "Type" => "integer"
-                  },
-                  %{
-                    "CaseSensitive" => true,
-                    "CatalogName" => "hive",
-                    "Label" => "name",
-                    "Name" => "name",
-                    "Nullable" => "UNKNOWN",
-                    "Precision" => 2_147_483_647,
-                    "Scale" => 0,
-                    "SchemaName" => "",
-                    "TableName" => "",
-                    "Type" => "varchar"
-                  }
-                ],
-                "ResultRows" => [%{"Data" => ["id", "name"]}, %{"Data" => ["1", "Ale"]}],
-                "ResultSetMetadata" => %{
-                  "ColumnInfo" => [
-                    %{
-                      "CaseSensitive" => false,
-                      "CatalogName" => "hive",
-                      "Label" => "id",
-                      "Name" => "id",
-                      "Nullable" => "UNKNOWN",
-                      "Precision" => 10,
-                      "Scale" => 0,
-                      "SchemaName" => "",
-                      "TableName" => "",
-                      "Type" => "integer"
-                    },
-                    %{
-                      "CaseSensitive" => true,
-                      "CatalogName" => "hive",
-                      "Label" => "name",
-                      "Name" => "name",
-                      "Nullable" => "UNKNOWN",
-                      "Precision" => 2_147_483_647,
-                      "Scale" => 0,
-                      "SchemaName" => "",
-                      "TableName" => "",
-                      "Type" => "varchar"
-                    }
-                  ]
-                },
-                "Rows" => [
-                  %{"Data" => [%{"VarCharValue" => "id"}, %{"VarCharValue" => "name"}]},
-                  %{"Data" => [%{"VarCharValue" => "1"}, %{"VarCharValue" => "Ale"}]}
-                ]
-              },
-              "UpdateCount" => 0
-            }
+            prepared_result
           end
 
         {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
@@ -315,45 +287,18 @@ defmodule ReqAthenaTest do
 
     assert response.status == 200
 
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"]],
-             statement_name: "query_8CD6B60FAFA18EBFA8719A6EAC192624",
-             metadata: [
-               %{
-                 "CaseSensitive" => false,
-                 "CatalogName" => "hive",
-                 "Label" => "id",
-                 "Name" => "id",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 10,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "integer"
-               },
-               %{
-                 "CaseSensitive" => true,
-                 "CatalogName" => "hive",
-                 "Label" => "name",
-                 "Name" => "name",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 2_147_483_647,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "varchar"
-               }
-             ]
-           }
+    assert response.body == prepared_result
   end
 
   test "executes a query with session token" do
+    me = self()
+    session_token = "giant dummy session token"
+
     token_validation = fn request ->
+      send(me, :token_validation)
+
       assert Req.Request.get_header(request, "x-amz-security-token") == [
-               "giant dummy session token"
+               session_token
              ]
     end
 
@@ -366,55 +311,28 @@ defmodule ReqAthenaTest do
     opts = [
       access_key_id: "some key",
       secret_access_key: "dummy",
-      token: "giant dummy session token",
+      token: session_token,
       region: "us-east-1",
       database: "my_awesome_database",
       output_location: "s3://foo"
     ]
 
-    assert response =
-             Req.new(adapter: fake_athena(validations))
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris")
+    response =
+      Req.new(adapter: fake_athena(validations))
+      |> ReqAthena.attach(opts)
+      |> Req.post!(athena: "select * from iris")
 
     assert response.status == 200
+    assert is_map(response.body)
 
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"], [2, "Wojtek"]],
-             statement_name: nil,
-             metadata: [
-               %{
-                 "CaseSensitive" => false,
-                 "CatalogName" => "hive",
-                 "Label" => "id",
-                 "Name" => "id",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 10,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "integer"
-               },
-               %{
-                 "CaseSensitive" => true,
-                 "CatalogName" => "hive",
-                 "Label" => "name",
-                 "Name" => "name",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 2_147_483_647,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "varchar"
-               }
-             ]
-           }
+    assert_received :token_validation
+    assert_received :token_validation
+    assert_received :token_validation
   end
 
   test "executes a query with workgroup" do
+    me = self()
+
     validations = %{
       "StartQueryExecution" => fn request ->
         client_req_token =
@@ -431,6 +349,8 @@ defmodule ReqAthenaTest do
                  "QueryString" => "select * from iris",
                  "WorkGroup" => "default"
                } = decoded
+
+        send(me, :start_query_validation)
       end
     }
 
@@ -455,6 +375,7 @@ defmodule ReqAthenaTest do
           }
         }
 
+        send(me, :get_query_execution)
         {request, %Req.Response{status: 200, body: Jason.encode!(data)}}
       end
     }
@@ -473,40 +394,111 @@ defmodule ReqAthenaTest do
              |> Req.post!(athena: "select * from iris")
 
     assert response.status == 200
+    assert %{"ResultSet" => _} = response.body
 
-    assert response.body == %ReqAthena.Result{
-             columns: ["id", "name"],
-             output_location: "s3://foo",
-             query_execution_id: "an uuid",
-             rows: [[1, "Ale"], [2, "Wojtek"]],
-             statement_name: nil,
-             metadata: [
-               %{
-                 "CaseSensitive" => false,
-                 "CatalogName" => "hive",
-                 "Label" => "id",
-                 "Name" => "id",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 10,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "integer"
-               },
-               %{
-                 "CaseSensitive" => true,
-                 "CatalogName" => "hive",
-                 "Label" => "name",
-                 "Name" => "name",
-                 "Nullable" => "UNKNOWN",
-                 "Precision" => 2_147_483_647,
-                 "Scale" => 0,
-                 "SchemaName" => "",
-                 "TableName" => "",
-                 "Type" => "varchar"
-               }
-             ]
+    assert_received :start_query_validation
+    assert_received :get_query_execution
+  end
+
+  test "executes a query string with :explorer format" do
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    request_validations = %{
+      "StartQueryExecution" => fn request ->
+        decoded = Jason.decode!(request.body)
+
+        assert %{
+                 "ClientRequestToken" => client_req_token,
+                 "QueryExecutionContext" => %{
+                   "Database" => "my_awesome_database"
+                 },
+                 "QueryString" =>
+                   "UNLOAD (select * from iris)\nTO 's3://foo/results'\nWITH (format = 'PARQUET')",
+                 "ResultConfiguration" => %{"OutputLocation" => "s3://foo"}
+               } = decoded
+
+        assert is_binary(client_req_token)
+      end
+    }
+
+    me = self()
+
+    assert response =
+             Req.new(adapter: fake_athena(request_validations))
+             |> Req.Request.put_header("x-auth", "my awesome auth header")
+             |> Req.Request.put_private(:athena_dataframe_builder, fn output_location,
+                                                                      credentials,
+                                                                      decode_body ->
+               assert "s3://" <> _ = output_location
+
+               assert decode_body
+
+               assert Enum.sort(Keyword.take(opts, [:access_key_id, :secret_access_key, :region])) ==
+                        Enum.sort(credentials)
+
+               send(me, {:explorer_built, output_location})
+
+               Explorer.DataFrame.new(id: [1, 2], name: ["Ale", "Wojtek"])
+             end)
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris", format: :explorer)
+
+    assert response.status == 200
+
+    assert df = %Explorer.DataFrame{} = response.body
+
+    assert Explorer.DataFrame.to_columns(df, atom_keys: true) == %{
+             id: [1, 2],
+             name: ["Ale", "Wojtek"]
            }
+
+    assert_received {:explorer_built, _output_location}
+  end
+
+  test "executes a query string with :explorer format and :decode_body as false" do
+    opts = [
+      access_key_id: "some key",
+      secret_access_key: "dummy",
+      region: "us-east-1",
+      database: "my_awesome_database",
+      output_location: "s3://foo"
+    ]
+
+    me = self()
+
+    request_validations = %{
+      "StartQueryExecution" => &Function.identity/1
+    }
+
+    assert response =
+             Req.new(adapter: fake_athena(request_validations))
+             |> Req.Request.put_header("x-auth", "my awesome auth header")
+             |> Req.Request.put_private(:athena_dataframe_builder, fn output_location,
+                                                                      credentials,
+                                                                      decode_body ->
+               refute decode_body
+
+               assert Enum.sort(Keyword.take(opts, [:access_key_id, :secret_access_key, :region])) ==
+                        Enum.sort(credentials)
+
+               send(me, {:explorer_built, output_location})
+
+               ["s3://foo/results/first"]
+             end)
+             |> ReqAthena.attach(opts)
+             |> Req.post!(athena: "select * from iris", format: :explorer, decode_body: false)
+
+    assert response.status == 200
+
+    assert response.body == ["s3://foo/results/first"]
+
+    assert_received {:explorer_built, _output_location}
   end
 
   test "raises the request when neither workgroup and output location are defined" do

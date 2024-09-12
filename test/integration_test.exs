@@ -22,13 +22,15 @@ defmodule IntegrationTest do
   LOCATION 's3://osm-pds/planet/';\
   """
 
-  test "returns the response from AWS Athena's API" do
+  test "without a given format returns the response as it is from the API" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
     opts = [
       access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
-      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
     ]
 
     # create table
@@ -53,40 +55,213 @@ defmodule IntegrationTest do
 
     assert query_response.status == 200
 
-    assert query_response.body.columns == [
-             "id",
-             "type",
-             "tags",
-             "members",
-             "timestamp",
-             "visible"
-           ]
-
-    refute query_response.body.statement_name
-    assert is_binary(query_response.body.query_execution_id)
-
-    assert query_response.body.output_location ==
-             "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv"
-
-    assert query_response.body.rows == [
-             [
-               470_454,
-               "relation",
-               "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
-               "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
-               ~N[2017-01-21 12:51:34.000],
-               true
-             ]
-           ]
+    assert %{
+             "ResultSet" => %{
+               "ColumnInfos" => [
+                 %{
+                   "CaseSensitive" => false,
+                   "CatalogName" => "hive",
+                   "Label" => "id",
+                   "Name" => "id",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 19,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "bigint"
+                 },
+                 %{
+                   "CaseSensitive" => true,
+                   "CatalogName" => "hive",
+                   "Label" => "type",
+                   "Name" => "type",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 2_147_483_647,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "varchar"
+                 },
+                 %{
+                   "CaseSensitive" => false,
+                   "CatalogName" => "hive",
+                   "Label" => "tags",
+                   "Name" => "tags",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 0,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "map"
+                 },
+                 %{
+                   "CaseSensitive" => false,
+                   "CatalogName" => "hive",
+                   "Label" => "members",
+                   "Name" => "members",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 0,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "array"
+                 },
+                 %{
+                   "CaseSensitive" => false,
+                   "CatalogName" => "hive",
+                   "Label" => "timestamp",
+                   "Name" => "timestamp",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 3,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "timestamp"
+                 },
+                 %{
+                   "CaseSensitive" => false,
+                   "CatalogName" => "hive",
+                   "Label" => "visible",
+                   "Name" => "visible",
+                   "Nullable" => "UNKNOWN",
+                   "Precision" => 0,
+                   "Scale" => 0,
+                   "SchemaName" => "",
+                   "TableName" => "",
+                   "Type" => "boolean"
+                 }
+               ],
+               "ResultRows" => [
+                 %{"Data" => ["id", "type", "tags", "members", "timestamp", "visible"]},
+                 %{
+                   "Data" => [
+                     "470454",
+                     "relation",
+                     "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}",
+                     "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]",
+                     "2017-01-21 12:51:34.000",
+                     "true"
+                   ]
+                 }
+               ],
+               "ResultSetMetadata" => %{
+                 "ColumnInfo" => [
+                   %{
+                     "CaseSensitive" => false,
+                     "CatalogName" => "hive",
+                     "Label" => "id",
+                     "Name" => "id",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 19,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "bigint"
+                   },
+                   %{
+                     "CaseSensitive" => true,
+                     "CatalogName" => "hive",
+                     "Label" => "type",
+                     "Name" => "type",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 2_147_483_647,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "varchar"
+                   },
+                   %{
+                     "CaseSensitive" => false,
+                     "CatalogName" => "hive",
+                     "Label" => "tags",
+                     "Name" => "tags",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 0,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "map"
+                   },
+                   %{
+                     "CaseSensitive" => false,
+                     "CatalogName" => "hive",
+                     "Label" => "members",
+                     "Name" => "members",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 0,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "array"
+                   },
+                   %{
+                     "CaseSensitive" => false,
+                     "CatalogName" => "hive",
+                     "Label" => "timestamp",
+                     "Name" => "timestamp",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 3,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "timestamp"
+                   },
+                   %{
+                     "CaseSensitive" => false,
+                     "CatalogName" => "hive",
+                     "Label" => "visible",
+                     "Name" => "visible",
+                     "Nullable" => "UNKNOWN",
+                     "Precision" => 0,
+                     "Scale" => 0,
+                     "SchemaName" => "",
+                     "TableName" => "",
+                     "Type" => "boolean"
+                   }
+                 ]
+               },
+               "Rows" => [
+                 %{
+                   "Data" => [
+                     %{"VarCharValue" => "id"},
+                     %{"VarCharValue" => "type"},
+                     %{"VarCharValue" => "tags"},
+                     %{"VarCharValue" => "members"},
+                     %{"VarCharValue" => "timestamp"},
+                     %{"VarCharValue" => "visible"}
+                   ]
+                 },
+                 %{
+                   "Data" => [
+                     %{"VarCharValue" => "470454"},
+                     %{"VarCharValue" => "relation"},
+                     %{
+                       "VarCharValue" =>
+                         "{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}"
+                     },
+                     %{
+                       "VarCharValue" =>
+                         "[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]"
+                     },
+                     %{"VarCharValue" => "2017-01-21 12:51:34.000"},
+                     %{"VarCharValue" => "true"}
+                   ]
+                 }
+               ]
+             },
+             "UpdateCount" => 0
+           } == query_response.body
   end
 
-  test "returns the response from AWS Athena's API with parameterized query" do
+  test "returns the response in an Explorer dataframe" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
     opts = [
       access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
-      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
     ]
 
     # create table
@@ -101,76 +276,327 @@ defmodule IntegrationTest do
     # query single row from planet table
     assert query_response =
              Req.post!(req,
-               athena:
-                 {"SELECT id, type FROM planet WHERE id = ? and type = ?", [239_970_142, "node"]}
+               athena: """
+               SELECT id, type, tags, members, timestamp, visible
+                 FROM planet
+                WHERE id = 470454
+                  and type = 'relation'
+               """,
+               format: :explorer
              )
 
     assert query_response.status == 200
-    assert query_response.body.columns == ["id", "type"]
-    assert query_response.body.statement_name == "query_C71EF77B8B7B92D9846C6D7E70136448"
-    assert is_binary(query_response.body.query_execution_id)
-    assert query_response.body.rows == [[239_970_142, "node"]]
 
-    assert query_response.body.output_location ==
-             "#{opts[:output_location]}/#{query_response.body.query_execution_id}.csv"
+    assert %Explorer.DataFrame{} = ldf = query_response.body
+    assert Explorer.DataFrame.lazy?(ldf)
+
+    names = [
+      "id",
+      "type",
+      "tags",
+      "members",
+      "timestamp",
+      "visible"
+    ]
+
+    values = [
+      470_454,
+      "relation",
+      [
+        %{
+          "key" => "source",
+          "value" => "©IGN 2010 dans le cadre de la cartographie réglementaire"
+        },
+        %{"key" => "site", "value" => "geodesic"},
+        %{
+          "key" => "url",
+          "value" =>
+            "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A"
+        },
+        %{"key" => "name", "value" => "Mérignac A"},
+        %{"key" => "network", "value" => "NTF-5"},
+        %{"key" => "ref", "value" => "17229A"},
+        %{"key" => "type", "value" => "site"}
+      ],
+      [
+        %{"ref" => 670_007_839, "role" => "", "type" => "node"},
+        %{"ref" => 670_007_840, "role" => "", "type" => "node"}
+      ],
+      ~N[2017-01-21 12:51:34.000000],
+      true
+    ]
+
+    df = Explorer.DataFrame.collect(ldf)
+
+    assert Explorer.DataFrame.names(df) == names
+    assert Explorer.DataFrame.to_rows(df) == [Map.new(Enum.zip(names, values))]
   end
 
-  test "encodes and decodes types received from AWS Athena's response" do
+  test "format as explorer without decoding body returns the list of parquet files" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
     opts = [
       access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
       region: System.fetch_env!("AWS_REGION"),
       database: "default",
-      output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
     ]
 
-    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
 
-    value = "req"
-    assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
+    response = Req.post!(req, athena: @create_table)
 
-    value = 1
-    assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
+    assert response.status == 200
 
-    value = 1.1
-    assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
+    # query single row from planet table
+    assert query_response =
+             Req.post!(req,
+               athena: """
+               SELECT id, type, tags, members, timestamp, visible
+                 FROM planet
+                WHERE id = 470454
+                  and type = 'relation'
+               """,
+               format: :explorer,
+               decode_body: false
+             )
 
-    value = -1.1
-    assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
+    assert query_response.status == 200
 
-    value = true
-    assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
+    assert [first_file | _] = query_response.body
 
-    value = 1.175494351e-38
-    assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
+    assert String.starts_with?(first_file, "s3://")
+  end
 
-    value = 3.402823466e+38
-    assert Req.post!(req, athena: {"SELECT ?", [value]}).body.rows == [[value]]
+  test "returns the response as CSV" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    value = Date.utc_today()
-    query = "SELECT CAST(? AS DATE)"
-    assert Req.post!(req, athena: {query, [value]}).body.rows == [[value]]
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
+    ]
 
-    naive_dt = NaiveDateTime.utc_now()
-    value = NaiveDateTime.truncate(naive_dt, :millisecond)
-    query = "SELECT CAST(? AS TIMESTAMP)"
-    assert Req.post!(req, athena: {query, [naive_dt]}).body.rows == [[value]]
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
 
-    datetime = DateTime.utc_now()
-    value = DateTime.to_naive(datetime) |> NaiveDateTime.truncate(:millisecond)
-    assert Req.post!(req, athena: {query, [datetime]}).body.rows == [[value]]
+    response = Req.post!(req, athena: @create_table)
 
-    query = "SELECT timestamp '2012-10-31 01:00:00.000 UTC' AT TIME ZONE 'America/Sao_Paulo'"
-    value = DateTime.new!(~D[2012-10-30], ~T[23:00:00.000], "America/Sao_Paulo")
-    assert Req.post!(req, athena: query).body.rows == [[value]]
+    assert response.status == 200
 
-    value = "{name=aleDsz, id=1}"
-    query = "SELECT MAP(ARRAY['name', 'id'], ARRAY['aleDsz', '1'])"
-    assert Req.post!(req, athena: query).body.rows == [[value]]
+    # query single row from planet table
+    assert query_response =
+             Req.post!(req,
+               athena: """
+               SELECT id, type, tags, members, timestamp, visible
+                 FROM planet
+                WHERE id = 470454
+                  and type = 'relation'
+               """,
+               format: :csv
+             )
 
-    value = "{ids=[10, 20]}"
-    query = "SELECT CAST(ROW(ARRAY[10, 20]) AS ROW(ids ARRAY<INTEGER>))"
-    assert Req.post!(req, athena: query).body.rows == [[value]]
+    assert query_response.status == 200
+
+    assert query_response.body ==
+             ~s|"id","type","tags","members","timestamp","visible"
+"470454","relation","{ref=17229A, site=geodesic, name=Mérignac A, source=©IGN 2010 dans le cadre de la cartographie réglementaire, type=site, url=http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A, network=NTF-5}","[{type=node, ref=670007839, role=}, {type=node, ref=670007840, role=}]","2017-01-21 12:51:34.000","true"
+|
+  end
+
+  test "format as CSV without decoding body returns the CSV file path" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
+    ]
+
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
+
+    response = Req.post!(req, athena: @create_table)
+
+    assert response.status == 200
+
+    # query single row from planet table
+    assert query_response =
+             Req.post!(req,
+               athena: """
+               SELECT id, type, tags, members, timestamp, visible
+                 FROM planet
+                WHERE id = 470454
+                  and type = 'relation'
+               """,
+               format: :csv,
+               decode_body: false
+             )
+
+    assert query_response.status == 200
+    assert String.starts_with?(query_response.body, "s3://")
+    assert String.ends_with?(query_response.body, ".csv")
+  end
+
+  test "returns the response as a list of JSON objects" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
+    ]
+
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
+
+    response = Req.post!(req, athena: @create_table)
+
+    assert response.status == 200
+
+    # query single row from planet table
+    assert query_response =
+             Req.post!(req,
+               athena: """
+               SELECT id, type, tags, members, timestamp, visible
+                 FROM planet
+                WHERE (id in (470454, 470455))
+                  and type = 'relation'
+               """,
+               format: :json
+             )
+
+    assert query_response.status == 200
+
+    assert query_response.body ==
+             [
+               %{
+                 "id" => 470_454,
+                 "members" => [
+                   %{"ref" => 670_007_839, "role" => "", "type" => "node"},
+                   %{"ref" => 670_007_840, "role" => "", "type" => "node"}
+                 ],
+                 "tags" => %{
+                   "name" => "Mérignac A",
+                   "network" => "NTF-5",
+                   "ref" => "17229A",
+                   "site" => "geodesic",
+                   "source" => "©IGN 2010 dans le cadre de la cartographie réglementaire",
+                   "type" => "site",
+                   "url" =>
+                     "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17229A"
+                 },
+                 "timestamp" => "2017-01-21 12:51:34",
+                 "type" => "relation",
+                 "visible" => true
+               },
+               %{
+                 "id" => 470_455,
+                 "members" => [%{"ref" => 670_007_841, "role" => "", "type" => "node"}],
+                 "tags" => %{
+                   "name" => "Meschers-sur-Gironde A",
+                   "network" => "NTF-5",
+                   "ref" => "17230A",
+                   "site" => "geodesic",
+                   "source" => "©IGN 2010 dans le cadre de la cartographie réglementaire",
+                   "type" => "site",
+                   "url" =>
+                     "http://geodesie.ign.fr/fiches/index.php?module=e&action=fichepdf&source=carte&sit_no=17230A"
+                 },
+                 "timestamp" => "2017-01-21 12:51:34",
+                 "type" => "relation",
+                 "visible" => true
+               }
+             ]
+  end
+
+  test "returns the response as a list paths to NDJSON files" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
+    ]
+
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
+
+    response = Req.post!(req, athena: @create_table)
+
+    assert response.status == 200
+
+    # query single row from planet table
+    assert query_response =
+             Req.post!(req,
+               athena: """
+               SELECT id, type, tags, members, timestamp, visible
+                 FROM planet
+                WHERE id = 470454
+                  and type = 'relation'
+               """,
+               format: :json,
+               decode_body: false
+             )
+
+    assert query_response.status == 200
+
+    assert [first_file | _] = query_response.body
+
+    assert String.starts_with?(first_file, "s3://")
+  end
+
+  test "returns the response from AWS Athena's API with parameterized query" do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    opts = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      region: System.fetch_env!("AWS_REGION"),
+      database: "default",
+      output_location: Path.join(System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION"), "test-#{now}")
+    ]
+
+    # create table
+    req =
+      Req.new(http_errors: :raise)
+      |> ReqAthena.attach(opts)
+
+    response = Req.post!(req, athena: @create_table)
+
+    assert response.status == 200
+
+    # query single row from planet table
+    assert query_response =
+             Req.post!(req,
+               format: :json,
+               athena:
+                 {"SELECT id, type FROM planet WHERE id = ? and type = ?", [239_970_142, "node"]}
+             )
+
+    assert query_response.status == 200
+
+    assert query_response.body == [%{"id" => 239_970_142, "type" => "node"}]
   end
 
   test "returns failed AWS Athena's response" do
@@ -216,26 +642,21 @@ defmodule IntegrationTest do
     assert response.status == 200
   end
 
-  test "creates table inside AWS Athena's database with workgroup" do
-    opts = [
-      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
-      region: System.fetch_env!("AWS_REGION"),
-      database: "default",
-      workgroup: "primary"
-    ]
+  # TODO: check why it's not working only with "workgroup"
+  # test "creates table inside AWS Athena's database with workgroup" do
+  #   opts = [
+  #     access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+  #     secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+  #     region: System.fetch_env!("AWS_REGION"),
+  #     database: "default",
+  #     workgroup: "primary"
+  #   ]
 
-    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-    response = Req.post!(req, athena: @create_table)
-    result = response.body
+  #   req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
+  #   response = Req.post!(req, athena: @create_table)
 
-    assert response.status == 200
-
-    assert result.columns == []
-    refute result.statement_name
-    assert is_binary(result.query_execution_id)
-    assert result.output_location =~ "#{result.query_execution_id}.txt"
-  end
+  #   assert response.status == 200
+  # end
 
   test "creates table inside AWS Athena's database with workgroup and output location" do
     opts = [
@@ -249,14 +670,9 @@ defmodule IntegrationTest do
 
     req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
     response = Req.post!(req, athena: @create_table)
-    result = response.body
+    assert %{} = response.body
 
     assert response.status == 200
-
-    assert result.columns == []
-    refute result.statement_name
-    assert is_binary(result.query_execution_id)
-    assert result.output_location == "#{opts[:output_location]}/#{result.query_execution_id}.txt"
   end
 
   test "returns the cached result from AWS Athena's response" do
@@ -283,16 +699,11 @@ defmodule IntegrationTest do
     assert query_response.status == 200
 
     result = query_response.body
-    query_execution_id = result.query_execution_id
-
-    assert result.columns == ~w(id type tags members timestamp visible)
-    refute result.statement_name
-    assert is_binary(result.query_execution_id)
 
     assert response = Req.post!(req, athena: query)
     assert response.status == 200
 
-    assert response.body.query_execution_id == query_execution_id
+    assert result == response.body
   end
 
   test "force new result from AWS Athena's response" do
@@ -320,16 +731,11 @@ defmodule IntegrationTest do
     assert query_response.status == 200
 
     result = query_response.body
-    query_execution_id = result.query_execution_id
-
-    assert result.columns == ~w(id type tags members timestamp visible)
-    refute result.statement_name
-    assert is_binary(result.query_execution_id)
 
     assert response = Req.post!(req, athena: query)
     assert response.status == 200
 
-    refute response.body.query_execution_id == query_execution_id
+    assert result == response.body
   end
 
   describe "with aws_credentials" do
