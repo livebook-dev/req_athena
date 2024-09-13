@@ -1,7 +1,7 @@
 defmodule ReqAthena.MixProject do
   use Mix.Project
 
-  @version "0.1.5"
+  @version "0.2.0"
   @description "Req plugin for AWS Athena"
 
   def project do
@@ -42,11 +42,10 @@ defmodule ReqAthena.MixProject do
   defp deps do
     [
       {:req, "~> 0.5.0"},
-      {:aws_signature, "~> 0.3.0"},
       {:req_s3, "~> 0.2"},
-      {:explorer, "~> 0.9", optional: true},
+      {:aws_signature, "~> 0.3.0"},
       {:aws_credentials, "~> 0.2", optional: true},
-      {:table, "~> 0.1.1", optional: true},
+      {:explorer, "~> 0.9", optional: true},
       {:tzdata, "~> 1.1.1", only: :test},
       {:ex_doc, ">= 0.0.0", only: :docs, runtime: false}
     ]
