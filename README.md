@@ -12,8 +12,8 @@ The struct implements the `Table.Reader` protocol and thus can be efficiently tr
 
 ```elixir
 Mix.install([
-  {:req, "~> 0.3.5"},
-  {:req_athena, "~> 0.1.3"}
+  {:req, "~> 0.5.8"},
+  {:req_athena, "~> 0.3.0"}
 ])
 
 opts = [
@@ -24,7 +24,7 @@ opts = [
   output_location: "s3://my-bucket"
 ]
 
-req = Req.new() |> ReqAthena.attach(opts)
+req = ReqAthena.new(opts)
 
 # Create table from Registry of Open Data on AWS
 # See: https://registry.opendata.aws/osm/
@@ -48,7 +48,7 @@ STORED AS ORCFILE
 LOCATION 's3://osm-pds/planet/';
 """
 
-Req.post!(req, athena: query).body
+ReqAthena.query!(req, query).body
 # =>
 # %{
 #   "Output" => "",
@@ -63,7 +63,7 @@ Req.post!(req, athena: query).body
 # With plain string query
 query = "SELECT id, type, tags, members, timestamp, visible FROM planet WHERE id = 470454 and type = 'relation'"
 
-Req.post!(req, athena: query, format: :json).body
+ReqAthena.query!(req, query, [], format: :json).body
 # =>
 # [
 #  %{
@@ -90,7 +90,7 @@ Req.post!(req, athena: query, format: :json).body
 # With parameterized query
 query = "SELECT id, type FROM planet WHERE id = ? and type = ?"
 
-Req.post!(req, athena: {query, [239_970_142, "node"]}).body
+ReqAthena.query!(req, query, [239_970_142, "node"], format: :json).body
 #=> [%{"id" => 239970142, "type" => "node"}]
 ```
 
