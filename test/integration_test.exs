@@ -35,17 +35,18 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               athena: """
+             ReqAthena.query!(
+               req,
+               """
                SELECT id, type, tags, members, timestamp, visible
                  FROM planet
                 WHERE id = 470454
@@ -266,22 +267,24 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               athena: """
+             ReqAthena.query!(
+               req,
+               """
                SELECT id, type, tags, members, timestamp, visible
                  FROM planet
                 WHERE id = 470454
                   and type = 'relation'
                """,
+               [],
                format: :explorer
              )
 
@@ -345,22 +348,24 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               athena: """
+             ReqAthena.query!(
+               req,
+               """
                SELECT id, type, tags, members, timestamp, visible
                  FROM planet
                 WHERE id = 470454
                   and type = 'relation'
                """,
+               [],
                format: :explorer,
                decode_body: false
              )
@@ -385,22 +390,24 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               athena: """
+             ReqAthena.query!(
+               req,
+               """
                SELECT id, type, tags, members, timestamp, visible
                  FROM planet
                 WHERE id = 470454
                   and type = 'relation'
                """,
+               [],
                format: :csv
              )
 
@@ -425,22 +432,24 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               athena: """
+             ReqAthena.query!(
+               req,
+               """
                SELECT id, type, tags, members, timestamp, visible
                  FROM planet
                 WHERE id = 470454
                   and type = 'relation'
                """,
+               [],
                format: :csv,
                decode_body: false
              )
@@ -463,22 +472,24 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               athena: """
+             ReqAthena.query!(
+               req,
+               """
                SELECT id, type, tags, members, timestamp, visible
                  FROM planet
                 WHERE (id in (470454, 470455))
                   and type = 'relation'
                """,
+               [],
                format: :json
              )
 
@@ -539,22 +550,24 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               athena: """
+             ReqAthena.query!(
+               req,
+               """
                SELECT id, type, tags, members, timestamp, visible
                  FROM planet
                 WHERE id = 470454
                   and type = 'relation'
                """,
+               [],
                format: :json,
                decode_body: false
              )
@@ -579,19 +592,20 @@ defmodule IntegrationTest do
 
     # create table
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
-    response = Req.post!(req, athena: @create_table)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
 
     # query single row from planet table
     assert query_response =
-             Req.post!(req,
-               format: :json,
-               athena:
-                 {"SELECT id, type FROM planet WHERE id = ? and type = ?", [239_970_142, "node"]}
+             ReqAthena.query!(
+               req,
+               "SELECT id, type FROM planet WHERE id = ? and type = ?",
+               [239_970_142, "node"],
+               format: :json
              )
 
     assert query_response.status == 200
@@ -608,8 +622,8 @@ defmodule IntegrationTest do
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
     ]
 
-    req = Req.new() |> ReqAthena.attach(opts)
-    response = Req.post!(req, athena: {"SELECT ? + 10", ["foo"]})
+    req = ReqAthena.new(opts)
+    response = ReqAthena.query!(req, "SELECT ? + 10", ["foo"])
 
     assert response.status == 200
     assert response.body["QueryExecution"]["Status"]["State"] == "FAILED"
@@ -619,11 +633,13 @@ defmodule IntegrationTest do
 
     assert_raise RuntimeError,
                  "failed query with error: line 1:8: Column 'foo' cannot be resolved",
-                 fn -> Req.post!(req, http_errors: :raise, athena: "SELECT foo") end
+                 fn -> ReqAthena.query!(req, "SELECT foo", [], http_errors: :raise) end
 
     assert_raise RuntimeError,
                  "failed query with error: line 1:11: '+' cannot be applied to varchar(3), integer",
-                 fn -> Req.post!(req, http_errors: :raise, athena: {"SELECT ? + 10", ["foo"]}) end
+                 fn ->
+                   ReqAthena.query!(req, "SELECT ? + 10", ["foo"], http_errors: :raise)
+                 end
   end
 
   test "creates table inside AWS Athena's database with session credentials" do
@@ -636,8 +652,8 @@ defmodule IntegrationTest do
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
     ]
 
-    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-    response = Req.post!(req, athena: @create_table)
+    req = ReqAthena.new(opts) |> Req.merge(http_errors: :raise)
+    response = ReqAthena.query!(req, @create_table)
 
     assert response.status == 200
   end
@@ -652,8 +668,8 @@ defmodule IntegrationTest do
   #     workgroup: "primary"
   #   ]
 
-  #   req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-  #   response = Req.post!(req, athena: @create_table)
+  #   req = ReqAthena.new(opts) |> Req.merge(http_errors: :raise)
+  #   response = ReqAthena.query!(req, @create_table)
 
   #   assert response.status == 200
   # end
@@ -668,8 +684,8 @@ defmodule IntegrationTest do
       output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
     ]
 
-    req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-    response = Req.post!(req, athena: @create_table)
+    req = ReqAthena.new(opts) |> Req.merge(http_errors: :raise)
+    response = ReqAthena.query!(req, @create_table)
     assert %{} = response.body
 
     assert response.status == 200
@@ -685,8 +701,8 @@ defmodule IntegrationTest do
     ]
 
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
     query = """
     SELECT id, type, tags, members, timestamp, visible
@@ -695,12 +711,12 @@ defmodule IntegrationTest do
        and type = 'relation'\
     """
 
-    assert query_response = Req.post!(req, athena: query)
+    assert query_response = ReqAthena.query!(req, query)
     assert query_response.status == 200
 
     result = query_response.body
 
-    assert response = Req.post!(req, athena: query)
+    assert response = ReqAthena.query!(req, query)
     assert response.status == 200
 
     assert result == response.body
@@ -717,8 +733,8 @@ defmodule IntegrationTest do
     ]
 
     req =
-      Req.new(http_errors: :raise)
-      |> ReqAthena.attach(opts)
+      ReqAthena.new(opts)
+      |> Req.merge(http_errors: :raise)
 
     query = """
     SELECT id, type, tags, members, timestamp, visible
@@ -727,12 +743,12 @@ defmodule IntegrationTest do
        and type = 'relation'\
     """
 
-    assert query_response = Req.post!(req, athena: query)
+    assert query_response = ReqAthena.query!(req, query)
     assert query_response.status == 200
 
     result = query_response.body
 
-    assert response = Req.post!(req, athena: query)
+    assert response = ReqAthena.query!(req, query)
     assert response.status == 200
 
     assert result == response.body
@@ -771,8 +787,8 @@ defmodule IntegrationTest do
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
       ]
 
-      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-      response = Req.post!(req, athena: @create_table)
+      req = ReqAthena.new(opts) |> Req.merge(http_errors: :raise)
+      response = ReqAthena.query!(req, @create_table)
 
       assert response.status == 200
     end
@@ -792,8 +808,8 @@ defmodule IntegrationTest do
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
       ]
 
-      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-      response = Req.post!(req, athena: @create_table)
+      req = ReqAthena.new(opts) |> Req.merge(http_errors: :raise)
+      response = ReqAthena.query!(req, @create_table)
 
       assert response.status == 200
     end
@@ -813,8 +829,8 @@ defmodule IntegrationTest do
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
       ]
 
-      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-      response = Req.post!(req, athena: @create_table)
+      req = ReqAthena.new(opts) |> Req.merge(http_errors: :raise)
+      response = ReqAthena.query!(req, @create_table)
 
       assert response.status == 200
     end
@@ -830,8 +846,8 @@ defmodule IntegrationTest do
         output_location: System.fetch_env!("AWS_ATHENA_OUTPUT_LOCATION")
       ]
 
-      req = Req.new(http_errors: :raise) |> ReqAthena.attach(opts)
-      response = Req.post!(req, athena: @create_table)
+      req = ReqAthena.new(opts) |> Req.merge(http_errors: :raise)
+      response = ReqAthena.query!(req, @create_table)
 
       assert response.status == 200
     end

@@ -29,10 +29,10 @@ defmodule ReqAthenaTest do
     }
 
     assert response =
-             Req.new(adapter: fake_athena(request_validations))
+             ReqAthena.new(opts)
+             |> Req.merge(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris")
+             |> ReqAthena.query!("select * from iris")
 
     assert response.status == 200
 
@@ -135,12 +135,13 @@ defmodule ReqAthenaTest do
     }
 
     assert response =
-             Req.new(
+             ReqAthena.new(opts)
+             |> Req.merge(
                adapter: fake_athena(request_validations),
-               headers: [x_auth: "my awesome auth header"]
+               headers: [x_auth: "my awesome auth header"],
+               decode_body: false
              )
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris", decode_body: false)
+             |> ReqAthena.query!("select * from iris")
 
     assert response.status == 200
 
@@ -281,9 +282,9 @@ defmodule ReqAthenaTest do
     ]
 
     assert response =
-             Req.new(adapter: fake_athena(validations, results))
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: {"select * from iris where id = ?", [1]})
+             ReqAthena.new(opts)
+             |> Req.merge(adapter: fake_athena(validations, results))
+             |> ReqAthena.query!("select * from iris where id = ?", [1])
 
     assert response.status == 200
 
@@ -318,9 +319,9 @@ defmodule ReqAthenaTest do
     ]
 
     response =
-      Req.new(adapter: fake_athena(validations))
-      |> ReqAthena.attach(opts)
-      |> Req.post!(athena: "select * from iris")
+      ReqAthena.new(opts)
+      |> Req.merge(adapter: fake_athena(validations))
+      |> ReqAthena.query!("select * from iris")
 
     assert response.status == 200
     assert is_map(response.body)
@@ -389,9 +390,9 @@ defmodule ReqAthenaTest do
     ]
 
     assert response =
-             Req.new(adapter: fake_athena(validations, results))
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris")
+             ReqAthena.new(opts)
+             |> Req.merge(adapter: fake_athena(validations, results))
+             |> ReqAthena.query!("select * from iris")
 
     assert response.status == 200
     assert %{"ResultSet" => _} = response.body
@@ -430,7 +431,8 @@ defmodule ReqAthenaTest do
     me = self()
 
     assert response =
-             Req.new(adapter: fake_athena(request_validations))
+             ReqAthena.new(opts)
+             |> Req.merge(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
              |> Req.Request.put_private(:athena_dataframe_builder, fn output_location,
                                                                       credentials,
@@ -446,8 +448,7 @@ defmodule ReqAthenaTest do
 
                Explorer.DataFrame.new(id: [1, 2], name: ["Ale", "Wojtek"])
              end)
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris", format: :explorer)
+             |> ReqAthena.query!("select * from iris", [], format: :explorer)
 
     assert response.status == 200
 
@@ -477,7 +478,8 @@ defmodule ReqAthenaTest do
     }
 
     assert response =
-             Req.new(adapter: fake_athena(request_validations))
+             ReqAthena.new(opts)
+             |> Req.merge(adapter: fake_athena(request_validations))
              |> Req.Request.put_header("x-auth", "my awesome auth header")
              |> Req.Request.put_private(:athena_dataframe_builder, fn output_location,
                                                                       credentials,
@@ -491,8 +493,7 @@ defmodule ReqAthenaTest do
 
                ["s3://foo/results/first"]
              end)
-             |> ReqAthena.attach(opts)
-             |> Req.post!(athena: "select * from iris", format: :explorer, decode_body: false)
+             |> ReqAthena.query!("select * from iris", [], format: :explorer, decode_body: false)
 
     assert response.status == 200
 
@@ -509,11 +510,11 @@ defmodule ReqAthenaTest do
       database: "my_awesome_database"
     ]
 
-    req = Req.new(adapter: fake_athena()) |> ReqAthena.attach(opts)
+    req = ReqAthena.new(opts) |> Req.merge(adapter: fake_athena())
 
     assert_raise ArgumentError,
                  "options must have :workgroup, :output_location or both defined",
-                 fn -> Req.post!(req, athena: "select * from iris") end
+                 fn -> ReqAthena.query!(req, "select * from iris") end
   end
 
   defp fake_athena, do: fake_athena(%{})
