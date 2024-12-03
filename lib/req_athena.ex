@@ -94,6 +94,7 @@ defmodule ReqAthena do
     |> Request.register_options(@allowed_options)
     |> Request.merge_options(opts)
     |> maybe_put_aws_credentials()
+    |> put_signature_options()
   end
 
   @doc """
@@ -186,7 +187,7 @@ defmodule ReqAthena do
     url = "https://athena.#{region}.amazonaws.com"
 
     %{request | url: URI.parse(url)}
-    |> sign_request("StartQueryExecution")
+    |> prepare_action("StartQueryExecution")
     |> Request.append_response_steps(athena_result: &handle_athena_result/1)
   end
 
@@ -421,7 +422,7 @@ defmodule ReqAthena do
   defp get_query_state(request, response) do
     response =
       %{request | body: response.body}
-      |> sign_request("GetQueryExecution")
+      |> prepare_action("GetQueryExecution")
       |> Req.post!()
 
     Request.halt(request, response)
@@ -453,7 +454,7 @@ defmodule ReqAthena do
       "SUCCEEDED" ->
         request =
           request
-          |> sign_request("GetQueryResults")
+          |> prepare_action("GetQueryResults")
           |> Request.put_private(
             :athena_output_location,
             body["QueryExecution"]["ResultConfiguration"]["OutputLocation"]
@@ -498,46 +499,22 @@ defmodule ReqAthena do
     Request.halt(request, Req.post!(put_request_body(request, prepared_query)))
   end
 
-  # TODO: Add step `put_aws_sigv4` to Req
-  # See: https://github.com/wojtekmach/req/issues/62
-  defp sign_request(request, action) when is_binary(action) do
+  defp prepare_action(request, action) when is_binary(action) do
     request = Request.put_private(request, :athena_action, action)
 
-    session_aws_header =
-      if is_empty(request.options[:token]) do
-        []
-      else
-        [{"X-Amz-Security-Token", request.options.token}]
-      end
+    # We reuse the request in the response step, so we need to reset
+    # the state such that the put_aws_sigv4 step runs again and signs
+    # with the new headers.
+    request = %{
+      request
+      | headers: %{},
+        current_request_steps: Keyword.keys(request.request_steps)
+    }
 
-    aws_headers =
-      [
-        {"X-Amz-Target", "AmazonAthena.#{action}"},
-        {"Host", request.url.host},
-        {"Content-Type", "application/x-amz-json-1.1"}
-      ] ++ session_aws_header
-
-    headers =
-      for {k, v} <- sign_request(request, aws_headers),
-          do: {String.downcase(k, :ascii), v},
-          into: []
-
-    Req.Request.put_headers(request, headers)
-  end
-
-  defp sign_request(request, aws_headers) when is_list(aws_headers) do
-    :aws_signature.sign_v4(
-      request.options.access_key_id,
-      request.options.secret_access_key,
-      request.options.region,
-      "athena",
-      now(),
-      "POST",
-      to_string(request.url),
-      aws_headers,
-      request.body,
-      []
-    )
+    Req.Request.put_headers(request, [
+      {"X-Amz-Target", "AmazonAthena.#{action}"},
+      {"Content-Type", "application/x-amz-json-1.1"}
+    ])
   end
 
   defp maybe_put_aws_credentials(request) do
@@ -566,5 +543,15 @@ defmodule ReqAthena do
     defp aws_credentials, do: :undefined
   end
 
-  defp now, do: NaiveDateTime.utc_now() |> NaiveDateTime.to_erl()
+  defp put_signature_options(request) do
+    Req.merge(request,
+      aws_sigv4: [
+        access_key_id: request.options.access_key_id,
+        secret_access_key: request.options.secret_access_key,
+        region: request.options.region,
+        service: :athena,
+        token: request.options[:token]
+      ]
+    )
+  end
 end
