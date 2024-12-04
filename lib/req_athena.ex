@@ -60,7 +60,7 @@ defmodule ReqAthena do
 
         * `:json` - return contents of the JSON file.
 
-          Note: Req by default automatically decodes JSON response body ([`decode_body`](Req.Steps.decode_body1/) step)
+          Note: Req by default automatically decodes JSON response body (`Req.Steps.decode_body/1` step)
           and to prevent it from doing so, set `decode_body: false`.
 
         * `:explorer` - return contents in parquet format, lazy loaded into Explorer data frame.
