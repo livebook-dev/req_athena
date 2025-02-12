@@ -46,7 +46,15 @@ defmodule ReqAthena do
     * `:database` - Required. The AWS Athena database name.
 
     * `:output_location` - Optional. The S3 URL location to output AWS Athena query results.
-      Results will be saved as Parquet and loaded with Explorer only if this option is given.
+
+      When using `:json` or `:explorer` as the `:format` option (see below), this option is required.
+      You may also need to specify a new output location for every new query when using these
+      formats due to a limition of the `UNLOAD` command that `ReqAthena` uses underneath.
+      Since Athena expects the directory used by `UNLOAD` to be empty, we append a "`results`"
+      directory to the path of the `:output_location` to ensure it's empty.
+
+      See the [`UNLOAD` command docs](https://docs.aws.amazon.com/athena/latest/ug/unload.html#unload-considerations-and-limitations)
+      for more details.
 
     * `:workgroup` - Conditional. The AWS Athena workgroup.
 
@@ -64,22 +72,17 @@ defmodule ReqAthena do
           and to prevent it from doing so, set `decode_body: false`.
 
         * `:explorer` - return contents in parquet format, lazy loaded into Explorer data frame.
+          It means that the content is saved in the `:output_location` using parquet files.
 
+          To use this option you first need to install `:explorer` as a dependency.
 
-      There are some limitations when using the `:json` and `:explorer` format.
-      First, you need to install Explorer in order to use the `:explorer` format.
-      Second, when using these format, you always need to provide a different output location.
-      See the [`UNLOAD` command docs](https://docs.aws.amazon.com/athena/latest/ug/unload.html#unload-considerations-and-limitations)
-      for more details.
+      When using `:json` or `:explorer` format, you may need to pass a different output location
+      for every query. See `:output_location` for details.
 
     * `:output_compression` - Optional. Sets the Parquet compression format and level
       for the output when using the Explorer output format. This can be a string, like `"gzip"`,
       or a tuple with `{format, level}`, like: `{"ZSTD", 4}`. By default this is `nil`,
       which means that for Parquet (the format that Explorer uses) this is going to be `"gzip"`.
-
-  There is a limitation of Athena that requires the `:output_location` to be present
-  for every query that outputs to a format other than "CSV". So we append "results"
-  to the `:output_location` to make the partition files be saved there.
 
   Conditional fields must always be defined, and can be one of the fields or both.
   """

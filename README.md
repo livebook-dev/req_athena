@@ -5,8 +5,10 @@
 
 [Req](https://github.com/wojtekmach/req) plugin for [AWS Athena](https://docs.aws.amazon.com/athena/latest/APIReference/Welcome.html).
 
-ReqAthena makes it easy to make Athena queries. Query results are decoded into the `ReqAthena.Result` struct.
-The struct implements the `Table.Reader` protocol and thus can be efficiently traversed by rows or columns.
+ReqAthena makes it easy to make Athena queries and save the results into S3 buckets.
+
+By default, `ReqAthena` will query results and use the default output format,
+which is CSV. To change that, you can use the `:format` option documented bellow.
 
 ## Usage
 
@@ -21,7 +23,9 @@ opts = [
   secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
   region: System.fetch_env!("AWS_REGION"),
   database: "default",
-  output_location: "s3://my-bucket"
+  # This may need to be a new directory for every query using the `:json` or `:explorer` formats.
+  # See the docs for details: https://hexdocs.pm/req_athena/ReqAthena.html#new/1
+  output_location: "s3://my-bucket/my-location"
 ]
 
 req = ReqAthena.new(opts)
