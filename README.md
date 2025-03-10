@@ -8,7 +8,8 @@
 ReqAthena makes it easy to make Athena queries and save the results into S3 buckets.
 
 By default, `ReqAthena` will query results and use the default output format,
-which is CSV. To change that, you can use the `:format` option documented bellow.
+which is the decoded API response. To change that, you can use the `:format`
+option documented below.
 
 ## Usage
 
