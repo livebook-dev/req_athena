@@ -50,7 +50,7 @@ defmodule ReqAthena do
 
       When using `:json` or `:explorer` as the `:format` option (see below), this option is required.
       You may also need to specify a new output location for every new query when using these
-      formats due to a limition of the `UNLOAD` command that `ReqAthena` uses underneath.
+      formats due to a limitation of the `UNLOAD` command that `ReqAthena` uses underneath.
       Since Athena expects the directory used by `UNLOAD` to be empty, we append a "`results`"
       directory to the path of the `:output_location` to ensure it's empty.
 
@@ -69,11 +69,11 @@ defmodule ReqAthena do
 
         * `:json` - return contents of the JSON file.
 
-          Note: Req by default automatically decodes JSON response body (`Req.Steps.decode_body/1` step)
+          Note: Req by default automatically decodes the JSON response body (`Req.Steps.decode_body/1` step)
           and to prevent it from doing so, set `decode_body: false`.
 
-        * `:explorer` - return contents in parquet format, lazy loaded into Explorer data frame.
-          It means that the content is saved in the `:output_location` using parquet files.
+        * `:explorer` - return contents in Parquet format, lazy loaded into Explorer data frame.
+          It means that the content is saved in the `:output_location` using Parquet files.
 
           To use this option you first need to install `:explorer` as a dependency.
 
